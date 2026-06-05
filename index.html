@@ -189,18 +189,18 @@
     </div>
   </div>
 
-  <!-- ============ SETUP (first login) ============ -->
+  <!-- ============ SETUP / CODE CHANGE ============ -->
   <div id="setupView" class="view hidden">
     <div class="scroll"><div class="pad centerpad">
       <div class="brandrow">
-        <button class="backbtn" type="button" onclick="goHome()">
+        <button class="backbtn" type="button" onclick="closeCodeSetup()">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#15211A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>뒤로
         </button>
-        <span class="kicker">최초 1회 설정</span>
+        <span class="kicker" id="setupKicker">최초 1회 설정</span>
       </div>
       <div class="centermain">
-        <h1 class="title">나만의<br>확인코드 만들기</h1>
-        <p class="push-desc" style="margin:0 0 30px;">다음부터 내 성적을 안전하게 보려면, 숫자 코드를 새로 정해 주세요. 코드는 나만 알고 있어야 해요.</p>
+        <h1 class="title" id="setupTitle">나만의<br>확인코드 만들기</h1>
+        <p class="push-desc" id="setupDesc" style="margin:0 0 30px;">다음부터 내 성적을 안전하게 보려면, 숫자 코드를 새로 정해 주세요. 코드는 나만 알고 있어야 해요.</p>
         <div class="field" style="margin-bottom:0;">
           <div class="flabel">새 확인코드</div>
           <div class="code" id="newCodeDots"></div>
@@ -243,6 +243,7 @@
         </div>
       </div>
 
+      <button class="btn btn-ghost" style="margin-top:18px;" type="button" onclick="startCodeChange()">확인코드 변경</button>
       <button class="btn btn-ghost" style="margin-top:18px;" type="button" onclick="goHome()">홈으로 돌아가기</button>
     </div></div>
   </div>
@@ -258,8 +259,10 @@ var currentTab = 'exam1';      // 로그인 화면의 시험 탭
 var resultTab  = 'exam1';      // 결과 화면의 시험 탭
 var sessionIdx = 0;            // 선택한 시험(날짜) 인덱스
 var code = '';                 // 로그인 확인코드
-var newCode = '';              // 신규 코드(최초 설정)
-var session = { name:'', code:'', pageId:'' };   // 로그인 후 보관 (영어/받아쓰기 모두 조회용)
+var newCode = '';              // 신규 코드
+var setupMode = 'initial';     // initial | change
+var setupTargetTab = 'exam1';
+var session = { name:'', code:'', pageId:'', pageIds:{} };   // 로그인 후 보관 (영어/받아쓰기 모두 조회용)
 var examMeta = { exam1:{label:'영어 시험', kind:'영어 시험 결과'}, exam2:{label:'받아쓰기', kind:'받아쓰기 결과'} };
 var cacheResult = {};          // tab -> studentInfo (재조회 캐시)
 
@@ -293,6 +296,8 @@ function callScoreApi_(fn, args){
     params = { name: args[0], password: args[1], dbType: args[2] };
   } else if (fn === 'updatePassword') {
     params = { pageId: args[0], newPassword: args[1], dbType: args[2] };
+  } else if (fn === 'updateLoggedInPasswordAll') {
+    params = { name: args[0], oldPassword: args[1], newPassword: args[2] };
   } else if (fn === 'saveParentPushSubscription') {
     params = { name: args[0], password: args[1], dbType: args[2], subscriptionJson: args[3] };
   } else if (fn === 'sendParentPushTest') {
@@ -385,6 +390,12 @@ var MOCK = (function(){
     },
     updatePassword: function(res,rej,a){ var pageId=a[0], np=a[1], tab=a[2];
       delay(function(){ var name=pageId.split('_')[1]; DB[tab][name].pw=np; DB[tab][name].isFirst=false; res({success:true}); }); },
+    updateLoggedInPasswordAll: function(res,rej,a){ var name=a[0], oldPw=a[1], np=a[2], count=0;
+      delay(function(){
+        Object.keys(DB).forEach(function(tab){ if(DB[tab][name] && String(DB[tab][name].pw)===String(oldPw)){ DB[tab][name].pw=np; DB[tab][name].isFirst=false; count++; } });
+        res(count ? {success:true, updated:count} : {success:false, message:'현재 확인코드가 맞는 시험 정보를 찾지 못했습니다.'});
+      });
+    },
     saveParentPushSubscription: function(res){ delay(function(){ res({success:true}); }); },
     sendParentPushTest: function(res){ delay(function(){ res({success:true}); }); }
   };
@@ -447,8 +458,9 @@ function login(){
   gs('getStudentData', name, code, currentTab).then(function(res){
     btn.disabled=false; btn.textContent='성적 확인하기';
     if(res && res.success){
-      session={ name:name, code:code, pageId:res.pageId };
-      if(res.isFirst){ newCode=''; renderDots($('newCodeDots'), ''); $('setupBtn').disabled=true; show('setupView'); }
+      session={ name:name, code:code, pageId:res.pageId, pageIds:{} };
+      session.pageIds[currentTab]=res.pageId;
+      if(res.isFirst){ prepareCodeSetup('initial', currentTab); show('setupView'); }
       else { cacheResult={}; cacheResult[currentTab]=res.studentInfo; openResult(currentTab); }
     } else {
       toast((res && res.message) || '정보가 올바르지 않습니다.');
@@ -460,22 +472,68 @@ function login(){
 }
 
 /* =========================================================
-   코드 보안 설정 (최초 1회)
+   코드 보안 설정 / 변경
 ========================================================= */
+function prepareCodeSetup(mode, tab){
+  setupMode=mode || 'initial';
+  setupTargetTab=tab || currentTab;
+  newCode='';
+  renderDots($('newCodeDots'), '');
+  $('setupBtn').disabled=true;
+  if(setupMode==='change'){
+    $('setupKicker').textContent='확인코드 변경';
+    $('setupTitle').innerHTML='새 확인코드로<br>바꾸기';
+    $('setupDesc').textContent='새 숫자 4자리를 입력하면 현재 로그인된 영어 시험과 받아쓰기 확인코드가 함께 바뀌어요.';
+    $('setupBtn').textContent='확인코드 변경 완료';
+  } else {
+    $('setupKicker').textContent='최초 1회 설정';
+    $('setupTitle').innerHTML='나만의<br>확인코드 만들기';
+    $('setupDesc').textContent='다음부터 내 성적을 안전하게 보려면, 숫자 코드를 새로 정해 주세요. 코드는 나만 알고 있어야 해요.';
+    $('setupBtn').textContent='설정 완료 · 결과 보기';
+  }
+}
+
+function startCodeChange(){
+  if(!session.name || !session.code){ toast('먼저 로그인해 주세요.'); return; }
+  prepareCodeSetup('change', resultTab || currentTab);
+  show('setupView');
+}
+
+function closeCodeSetup(){
+  if(setupMode==='change' && session.name){ openResult(resultTab || currentTab); return; }
+  goHome();
+}
+
 function changePassword(){
   if(newCode.length===0){ toast('새 확인코드를 입력해 주세요.'); return; }
+  if(newCode.length!==4){ toast('확인코드는 숫자 4자리로 입력해 주세요.'); return; }
   var btn=$('setupBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> 저장 중...';
-  gs('updatePassword', session.pageId, newCode, currentTab).then(function(){
-    toast('설정 완료! 새 코드로 결과를 확인할게요.');
+  var targetTab=setupTargetTab || currentTab;
+  var savePromise;
+  if(setupMode==='change'){
+    savePromise=gs('updateLoggedInPasswordAll', session.name, session.code, newCode);
+  } else {
+    savePromise=gs('updatePassword', session.pageIds[targetTab] || session.pageId, newCode, targetTab);
+  }
+  savePromise.then(function(result){
+    if(result && result.success===false){ throw new Error(result.message || '확인코드를 변경하지 못했습니다.'); }
+    toast(setupMode==='change' ? '확인코드가 변경됐어요.' : '설정 완료! 새 코드로 결과를 확인할게요.');
     session.code=newCode;
+    code=newCode;
     // 새 코드로 즉시 재조회
-    return gs('getStudentData', session.name, newCode, currentTab);
+    return gs('getStudentData', session.name, newCode, targetTab);
   }).then(function(res){
-    btn.disabled=false; btn.textContent='설정 완료 · 결과 보기';
-    if(res && res.success && !res.isFirst){ cacheResult={}; cacheResult[currentTab]=res.studentInfo; code=newCode; openResult(currentTab); }
+    btn.disabled=false; btn.textContent=(setupMode==='change' ? '확인코드 변경 완료' : '설정 완료 · 결과 보기');
+    if(res && res.success && !res.isFirst){
+      session.pageId=res.pageId;
+      session.pageIds[targetTab]=res.pageId;
+      cacheResult={};
+      cacheResult[targetTab]=res.studentInfo;
+      openResult(targetTab);
+    }
     else { goHome(); }
   }).catch(function(err){
-    btn.disabled=false; btn.textContent='설정 완료 · 결과 보기';
+    btn.disabled=false; btn.textContent=(setupMode==='change' ? '확인코드 변경 완료' : '설정 완료 · 결과 보기');
     toast('설정 오류: '+(err && err.message ? err.message : err));
   });
 }
@@ -489,12 +547,14 @@ function openResult(tab){
   [].forEach.call($('resultTabs').children, function(b){ b.classList.toggle('on', b.dataset.tab===tab); });
   show('resultView');
   renderResultBody();
+  refreshScorePushUi();
 }
 function setResultTab(tab){
   if(tab===resultTab) return;
   resultTab=tab; sessionIdx=0;
   [].forEach.call($('resultTabs').children, function(b){ b.classList.toggle('on', b.dataset.tab===tab); });
   renderResultBody();
+  refreshScorePushUi();
 }
 function renderResultBody(){
   var body=$('resultBody'); var tab=resultTab;
@@ -503,7 +563,7 @@ function renderResultBody(){
   // 다른 시험 탭 — 같은 코드로 재조회
   body.innerHTML='<div class="scorewrap"><span class="score" style="color:#D6DDD8;">··<span class="u">점</span></span></div><div class="note">불러오는 중…</div>';
   gs('getStudentData', session.name, session.code, tab).then(function(res){
-    if(res && res.success && res.studentInfo){ cacheResult[tab]=res.studentInfo; renderSessions(res.studentInfo, tab); }
+    if(res && res.success && res.studentInfo){ session.pageIds[tab]=res.pageId; cacheResult[tab]=res.studentInfo; renderSessions(res.studentInfo, tab); }
     else if(res && res.isFirst){ body.innerHTML='<div class="note"><b style="color:var(--ink);">'+examMeta[tab].label+' 코드가 아직 없어요.</b><br>홈에서 '+examMeta[tab].label+'을(를) 선택해 코드를 먼저 만들어 주세요.</div>'; }
     else { body.innerHTML='<div class="note"><b style="color:var(--ink);">이 시험은 확인코드가 달라요.</b><br>'+examMeta[tab].label+' 결과는 홈에서 다시 로그인해 확인해 주세요.</div>'; }
   }).catch(function(err){ body.innerHTML='<div class="note">조회 오류: '+escapeHtml(err && err.message ? err.message : ''+err)+'</div>'; });
@@ -639,6 +699,7 @@ function diffHtml(mine, correct){
 
 function goHome(){
   code=''; newCode=''; cacheResult={};
+  setupMode='initial'; setupTargetTab='exam1';
   renderDots($('codeDots'), '');
   $('studentName').selectedIndex=0; $('nameField').classList.add('ph');
   refreshLoginBtn();
@@ -689,11 +750,44 @@ function getScorePushRegistration(){
   return navigator.serviceWorker.register('sw.js?v=score-push-20260605');
 }
 function markPushOn(){
+  try{ localStorage.setItem(scorePushLocalKey(), '1'); }catch(err){}
   $('pushIc').classList.add('on');
   $('pushIc').innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>';
   $('pushStatus').textContent='알림이 켜져 있어요';
   var b=$('pushEnableBtn'); b.style.background='#EAF2EC'; b.style.color='#1C5C3C';
   b.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>알림 켜짐';
+}
+
+function markPushOff(){
+  $('pushIc').classList.remove('on');
+  $('pushIc').innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>';
+  $('pushStatus').textContent='아직 꺼져 있어요';
+  var b=$('pushEnableBtn'); b.style.background='var(--green)'; b.style.color='#fff';
+  b.textContent='알림 켜기';
+}
+
+function scorePushLocalKey(){
+  return 'okguScorePushOn:'+(session.name||'')+':'+(resultTab||currentTab);
+}
+
+function refreshScorePushUi(){
+  markPushOff();
+  if(HAS_GS || !scorePushSupported()) return;
+  var remembered=false;
+  try{
+    remembered=localStorage.getItem(scorePushLocalKey())==='1';
+    if(remembered) markPushOn();
+  }catch(err){}
+  getScorePushRegistration().then(function(registration){
+    return registration.pushManager.getSubscription();
+  }).then(function(subscription){
+    if(!subscription) {
+      try{ localStorage.removeItem(scorePushLocalKey()); }catch(err){}
+      markPushOff();
+    } else if(remembered) {
+      markPushOn();
+    }
+  }).catch(function(){});
 }
 
 async function enableParentScorePush(studentName, password, dbType){
