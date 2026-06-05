@@ -84,6 +84,11 @@
 
   .res-kicker{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
   .res-name{font-size:21px;font-weight:800;letter-spacing:-.03em;margin:0 0 22px;}
+  .top-actions{display:flex;gap:10px;margin:-10px 0 22px;}
+  .mini-btn{width:auto;border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
+            font-size:13px;font-weight:800;padding:10px 13px;border-radius:12px;display:inline-flex;
+            align-items:center;justify-content:center;gap:7px;white-space:nowrap;}
+  .mini-btn:active{transform:scale(.98);}
   .scorewrap{display:flex;align-items:flex-end;gap:10px;margin-bottom:6px;min-height:96px;}
   .score{font-size:104px;font-weight:800;letter-spacing:-.06em;line-height:.82;color:var(--ink);white-space:nowrap;}
   .score .u{font-size:30px;font-weight:700;color:var(--green);letter-spacing:-.03em;}
@@ -223,6 +228,12 @@
         <span class="kicker">성적 조회</span>
       </div>
       <h2 class="res-name" id="resName"></h2>
+      <div class="top-actions">
+        <button class="mini-btn" type="button" onclick="startCodeChange()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h1a5 5 0 0 1 0 10h-1"/><path d="M9 17H8A5 5 0 0 1 8 7h1"/><path d="M8 12h8"/></svg>
+          확인코드 변경
+        </button>
+      </div>
       <div class="tabs" id="resultTabs">
         <button class="tab on" data-tab="exam1" type="button">영어 시험<span class="ink"></span></button>
         <button class="tab" data-tab="exam2" type="button">받아쓰기<span class="ink"></span></button>
@@ -243,7 +254,6 @@
         </div>
       </div>
 
-      <button class="btn btn-ghost" style="margin-top:18px;" type="button" onclick="startCodeChange()">확인코드 변경</button>
       <button class="btn btn-ghost" style="margin-top:18px;" type="button" onclick="goHome()">홈으로 돌아가기</button>
     </div></div>
   </div>
