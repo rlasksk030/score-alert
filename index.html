@@ -83,12 +83,14 @@
   .btn-ghost{background:none;border:1.5px solid var(--line);color:var(--ink);}
 
   .res-kicker{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
-  .res-name{font-size:21px;font-weight:800;letter-spacing:-.03em;margin:0 0 22px;}
-  .top-actions{display:flex;gap:10px;margin:-10px 0 22px;}
+  .res-name{font-size:21px;font-weight:800;letter-spacing:-.03em;margin:0 0 6px;}
+  .last-updated{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 18px;letter-spacing:-.01em;}
+  .top-actions{display:flex;gap:10px;margin:0 0 22px;}
   .mini-btn{width:auto;border:1.5px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;
             font-size:13px;font-weight:800;padding:10px 13px;border-radius:12px;display:inline-flex;
             align-items:center;justify-content:center;gap:7px;white-space:nowrap;}
   .mini-btn:active{transform:scale(.98);}
+  .logout-btn{margin-top:12px;border-color:transparent;color:var(--muted2);font-size:14px;background:transparent;}
   .scorewrap{display:flex;align-items:flex-end;gap:10px;margin-bottom:6px;min-height:96px;}
   .score{font-size:104px;font-weight:800;letter-spacing:-.06em;line-height:.82;color:var(--ink);white-space:nowrap;}
   .score .u{font-size:30px;font-weight:700;color:var(--green);letter-spacing:-.03em;}
@@ -228,6 +230,7 @@
         <span class="kicker">성적 조회</span>
       </div>
       <h2 class="res-name" id="resName"></h2>
+      <div class="last-updated" id="lastUpdated">마지막 확인: 방금 전</div>
       <div class="top-actions">
         <button class="mini-btn" type="button" onclick="startCodeChange()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 7h1a5 5 0 0 1 0 10h-1"/><path d="M9 17H8A5 5 0 0 1 8 7h1"/><path d="M8 12h8"/></svg>
@@ -255,7 +258,7 @@
       </div>
 
       <button class="btn btn-ghost" style="margin-top:18px;" type="button" onclick="startCodeChange()">확인코드 변경</button>
-      <button class="btn btn-ghost" style="margin-top:18px;" type="button" onclick="goHome()">홈으로 돌아가기</button>
+      <button class="btn btn-ghost logout-btn" type="button" onclick="logoutThisDevice()">이 기기에서 로그인 해제</button>
     </div></div>
   </div>
 
@@ -276,6 +279,8 @@ var setupTargetTab = 'exam1';
 var session = { name:'', code:'', pageId:'', pageIds:{} };   // 로그인 후 보관 (영어/받아쓰기 모두 조회용)
 var examMeta = { exam1:{label:'영어 시험', kind:'영어 시험 결과'}, exam2:{label:'받아쓰기', kind:'받아쓰기 결과'} };
 var cacheResult = {};          // tab -> studentInfo (재조회 캐시)
+var REMEMBER_LOGIN_KEY = 'okguScoreRememberedLogin:v1';
+var REMEMBER_LOGIN_DAYS = 30;
 
 /* =========================================================
    백엔드 어댑터
@@ -472,13 +477,109 @@ function login(){
       session={ name:name, code:code, pageId:res.pageId, pageIds:{} };
       session.pageIds[currentTab]=res.pageId;
       if(res.isFirst){ prepareCodeSetup('initial', currentTab); show('setupView'); }
-      else { cacheResult={}; cacheResult[currentTab]=res.studentInfo; openResult(currentTab); }
+      else { cacheResult={}; cacheResult[currentTab]=res.studentInfo; rememberLogin(name, code, currentTab); openResult(currentTab); }
     } else {
       toast((res && res.message) || '정보가 올바르지 않습니다.');
     }
   }).catch(function(err){
     btn.disabled=false; btn.textContent='성적 확인하기';
     toast('조회 오류: '+(err && err.message ? err.message : err));
+  });
+}
+
+function rememberLogin(name, pin, tab){
+  try{
+    localStorage.setItem(REMEMBER_LOGIN_KEY, JSON.stringify({
+      name: String(name || ''),
+      code: String(pin || ''),
+      tab: tab || currentTab || 'exam1',
+      expiresAt: Date.now() + REMEMBER_LOGIN_DAYS * 24 * 60 * 60 * 1000
+    }));
+  }catch(err){}
+}
+
+function rememberedLogin(){
+  try{
+    var raw=localStorage.getItem(REMEMBER_LOGIN_KEY);
+    if(!raw) return null;
+    var saved=JSON.parse(raw);
+    if(!saved || !saved.name || !saved.code || !saved.expiresAt || Date.now()>Number(saved.expiresAt)){
+      clearRememberedLogin();
+      return null;
+    }
+    return saved;
+  }catch(err){
+    clearRememberedLogin();
+    return null;
+  }
+}
+
+function clearRememberedLogin(){
+  try{ localStorage.removeItem(REMEMBER_LOGIN_KEY); }catch(err){}
+}
+
+function logoutThisDevice(){
+  if(!confirm('이 기기에서 자동 로그인을 해제할까요?\\n다음에 다시 이름과 확인코드를 입력해야 합니다.')) return;
+  goHome();
+  toast('이 기기에서 자동 로그인을 해제했어요.');
+}
+
+function formatLastCheckedTime(date){
+  var d=date || new Date();
+  var hours=d.getHours();
+  var minutes=String(d.getMinutes()).padStart(2,'0');
+  var ampm=hours < 12 ? '오전' : '오후';
+  var hour12=hours % 12 || 12;
+  return '마지막 확인: ' + ampm + ' ' + hour12 + ':' + minutes;
+}
+
+function updateLastChecked(){
+  var el=$('lastUpdated');
+  if(el) el.textContent=formatLastCheckedTime(new Date());
+}
+
+function tryAutoLogin(){
+  var saved=rememberedLogin();
+  if(!saved){ loadList(); return; }
+
+  currentTab=saved.tab || 'exam1';
+  resultTab=currentTab;
+  code=String(saved.code || '');
+  session={ name:saved.name, code:code, pageId:'', pageIds:{} };
+  show('loginView');
+  var sel=$('studentName');
+  sel.innerHTML='<option value="'+escapeHtml(saved.name)+'">'+escapeHtml(saved.name)+'</option>';
+  sel.value=saved.name;
+  $('nameField').classList.remove('ph');
+  renderDots($('codeDots'), code);
+  refreshLoginBtn();
+  $('loginBtn').disabled=true;
+  $('loginBtn').innerHTML='<span class="spin"></span> 자동 로그인 중...';
+
+  gs('getStudentData', saved.name, code, currentTab).then(function(res){
+    $('loginBtn').disabled=false;
+    $('loginBtn').textContent='성적 확인하기';
+    if(res && res.success && !res.isFirst){
+      session.pageId=res.pageId;
+      session.pageIds[currentTab]=res.pageId;
+      cacheResult={};
+      cacheResult[currentTab]=res.studentInfo;
+      rememberLogin(saved.name, code, currentTab);
+      openResult(currentTab);
+    } else {
+      clearRememberedLogin();
+      code='';
+      renderDots($('codeDots'), '');
+      toast('자동 로그인이 만료됐어요. 다시 로그인해 주세요.');
+      loadList();
+    }
+  }).catch(function(){
+    $('loginBtn').disabled=false;
+    $('loginBtn').textContent='성적 확인하기';
+    clearRememberedLogin();
+    code='';
+    renderDots($('codeDots'), '');
+    loadList();
   });
 }
 
@@ -531,6 +632,7 @@ function changePassword(){
     toast(setupMode==='change' ? '확인코드가 변경됐어요.' : '설정 완료! 새 코드로 결과를 확인할게요.');
     session.code=newCode;
     code=newCode;
+    rememberLogin(session.name, newCode, targetTab);
     // 새 코드로 즉시 재조회
     return gs('getStudentData', session.name, newCode, targetTab);
   }).then(function(res){
@@ -554,7 +656,9 @@ function changePassword(){
 ========================================================= */
 function openResult(tab){
   resultTab=tab; sessionIdx=0;
+  if(session.name && session.code) rememberLogin(session.name, session.code, tab);
   $('resName').textContent=session.name+' 어린이';
+  updateLastChecked();
   [].forEach.call($('resultTabs').children, function(b){ b.classList.toggle('on', b.dataset.tab===tab); });
   show('resultView');
   renderResultBody();
@@ -563,6 +667,7 @@ function openResult(tab){
 function setResultTab(tab){
   if(tab===resultTab) return;
   resultTab=tab; sessionIdx=0;
+  updateLastChecked();
   [].forEach.call($('resultTabs').children, function(b){ b.classList.toggle('on', b.dataset.tab===tab); });
   renderResultBody();
   refreshScorePushUi();
@@ -709,14 +814,15 @@ function diffHtml(mine, correct){
 }
 
 function goHome(){
+  clearRememberedLogin();
   code=''; newCode=''; cacheResult={};
   setupMode='initial'; setupTargetTab='exam1';
   renderDots($('codeDots'), '');
   $('studentName').selectedIndex=0; $('nameField').classList.add('ph');
   refreshLoginBtn();
   currentTab='exam1';
-  loadList();
   show('loginView');
+  loadList();
 }
 
 /* =========================================================
@@ -740,7 +846,7 @@ window.addEventListener('load', function(){
   $('loginBtn').addEventListener('click', login);
   $('setupBtn').addEventListener('click', changePassword);
 
-  loadList();
+  tryAutoLogin();
 });
 
 /* =========================================================
