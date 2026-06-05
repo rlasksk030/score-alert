@@ -1,271 +1,711 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
-  <style>
-    body { font-family: 'Pretendard', sans-serif; margin: 0; background-color: #f8f9fa; color: #333; }
-    .header { background: #4A90E2; color: white; padding: 25px 20px; text-align: center; }
-    .tab-bar { display: flex; background: white; border-bottom: 1px solid #eee; }
-    .tab { flex: 1; padding: 18px; text-align: center; cursor: pointer; color: #999; border-bottom: 3px solid transparent; transition: 0.3s; font-size: 17px; }
-    .tab.active { color: #4A90E2; border-bottom: 3px solid #4A90E2; font-weight: bold; }
-    .container { padding: 20px; max-width: 500px; margin: auto; }
-    .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
-    label { font-size: 14px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
-    select, input { width: 100%; padding: 14px; margin: 8px 0 18px; border: 1px solid #e0e0e0; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
-    button { width: 100%; padding: 15px; background: #4A90E2; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; font-weight: bold; }
-    button:disabled { opacity: .65; cursor: default; }
-    #resultArea, #changePwArea { display: none; }
-    .score-circle { width: 90px; height: 90px; background: #f0f7ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 15px auto; font-size: 26px; color: #4A90E2; font-weight: bold; border: 2px solid #e1eeff; }
-    .wrong-info { text-align: left; font-size: 15px; color: #d32f2f; background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.6; word-break: keep-all; }
-    .push-box { margin-top: 20px; padding: 16px; border-radius: 14px; background: #f4f8ff; border: 1px solid #dceaff; }
-    .push-title { margin: 0 0 10px; color: #2f6fb8; font-weight: 800; font-size: 15px; }
-    .push-desc { margin: 0 0 12px; color: #6b7280; font-size: 13px; line-height: 1.5; }
-    .push-btn { background: #2563eb; margin-top: 8px; }
-    .push-test-btn { background: #eef2ff; color: #3155b7; margin-top: 8px; }
-    .home-btn { background:#f1f3f5; color:#666; margin-top:25px; }
-  </style>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<title>옥구초 성적 조회</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{
+    --bg:#FBFCFB; --ink:#15211A; --green:#1C5C3C; --green-soft:#EAF2EC;
+    --line:#E7ECE8; --line2:#EFF2F0; --muted:#9AA39E; --muted2:#79827C;
+    --clay:#B4503C; --clay-soft:#FBEDE9;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
+    touch-action:manipulation;
+  }
+  button{font-family:inherit;}
+  .wrap{max-width:460px;margin:0 auto;min-height:100%;min-height:100dvh;display:flex;flex-direction:column;
+        padding-top:env(safe-area-inset-top);}
+  .view{flex:1;display:flex;flex-direction:column;animation:fade .34s cubic-bezier(.2,.8,.2,1);}
+  @media (prefers-reduced-motion: no-preference){@keyframes fade{from{transform:translateY(12px);}to{transform:none;}}}
+  .scroll{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+  .scroll::-webkit-scrollbar{display:none;}
+  .pad{padding:18px 26px 24px;}
+  .centerpad{display:flex;flex-direction:column;min-height:100%;}
+  .centermain{flex:1;display:flex;flex-direction:column;justify-content:center;padding-bottom:24px;}
+
+  .brandrow{display:flex;align-items:center;justify-content:space-between;padding:6px 0 4px;}
+  .brand{display:flex;align-items:center;gap:9px;}
+  .mark{width:30px;height:30px;border-radius:9px;background:var(--green);display:grid;place-items:center;}
+  .brand b{font-size:13px;font-weight:800;letter-spacing:-.01em;white-space:nowrap;}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);white-space:nowrap;}
+  .backbtn{display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:0;font-weight:800;font-size:13px;color:var(--ink);}
+
+  h1.title{font-size:30px;font-weight:800;letter-spacing:-.035em;line-height:1.2;margin:0 0 28px;}
+
+  .tabs{display:flex;border-bottom:1.5px solid var(--line);margin-bottom:30px;}
+  .tab{flex:1;padding:0 0 13px;background:none;border:none;cursor:pointer;font-size:15px;font-weight:700;
+       color:var(--muted);position:relative;letter-spacing:-.01em;white-space:nowrap;}
+  .tab .ink{position:absolute;left:0;right:0;bottom:-1.5px;height:2.5px;background:var(--green);border-radius:2px;
+            transform:scaleX(0);transition:transform .28s cubic-bezier(.2,.8,.2,1);}
+  .tab.on{color:var(--ink);}
+  .tab.on .ink{transform:scaleX(1);}
+
+  .field{margin-bottom:28px;}
+  .flabel{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted2);margin-bottom:11px;}
+
+  .selectfield{position:relative;}
+  .selectfield select{appearance:none;-webkit-appearance:none;width:100%;background:none;border:none;
+       border-bottom:1.5px solid var(--line);padding:6px 30px 12px 2px;font-family:inherit;font-size:18px;
+       font-weight:600;color:var(--ink);outline:none;border-radius:0;transition:border-color .2s;}
+  .selectfield select:focus{border-color:var(--green);}
+  .selectfield.ph select{color:#BCC3BE;font-weight:500;}
+  .selectfield .chev{position:absolute;right:2px;top:7px;pointer-events:none;}
+
+  .code{display:flex;gap:12px;margin-bottom:20px;}
+  .cell{flex:1;height:60px;border-bottom:2px solid var(--line);display:flex;align-items:center;justify-content:center;
+        font-size:34px;line-height:1;color:var(--green);transition:border-color .2s;}
+  .cell.filled{border-color:var(--green);}
+  .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px;max-width:320px;margin:0 auto;width:100%;}
+  .key{height:54px;border:none;background:none;font-size:24px;font-weight:600;color:var(--ink);border-radius:14px;
+       cursor:pointer;transition:background .12s,transform .08s;touch-action:manipulation;user-select:none;-webkit-user-select:none;}
+  .key:active{background:var(--green-soft);transform:scale(.96);}
+  .kdel{font-size:21px;color:var(--muted2);}
+  .key-empty{pointer-events:none;}
+
+  .footer{padding:14px 26px calc(20px + env(safe-area-inset-bottom));background:linear-gradient(to top,var(--bg) 72%,rgba(251,252,251,0));}
+  .btn{width:100%;border:none;cursor:pointer;font-weight:700;font-size:16px;padding:17px;border-radius:15px;
+       transition:transform .12s,opacity .2s,background .2s;letter-spacing:-.01em;display:flex;align-items:center;
+       justify-content:center;gap:9px;white-space:nowrap;}
+  .btn:active{transform:scale(.985);}
+  .btn-pri{background:var(--green);color:#fff;}
+  .btn-pri:disabled{background:#D6DDD8;color:#fff;cursor:default;}
+  .btn-ghost{background:none;border:1.5px solid var(--line);color:var(--ink);}
+
+  .res-kicker{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .res-name{font-size:21px;font-weight:800;letter-spacing:-.03em;margin:0 0 22px;}
+  .scorewrap{display:flex;align-items:flex-end;gap:10px;margin-bottom:6px;min-height:96px;}
+  .score{font-size:104px;font-weight:800;letter-spacing:-.06em;line-height:.82;color:var(--ink);white-space:nowrap;}
+  .score .u{font-size:30px;font-weight:700;color:var(--green);letter-spacing:-.03em;}
+  .scoretag{display:inline-block;font-size:13px;font-weight:700;padding:6px 13px;border-radius:999px;white-space:nowrap;}
+  .rule{height:1.5px;background:var(--line);margin:26px 0;}
+  .meta{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--line2);}
+  .meta .k{font-size:14px;color:var(--muted2);white-space:nowrap;}
+  .meta .v{font-size:15px;font-weight:700;white-space:nowrap;}
+
+  .wrong-h{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--clay);
+           margin:26px 0 14px;display:flex;align-items:center;gap:8px;white-space:nowrap;}
+  .wrong-h .dot{width:6px;height:6px;border-radius:9px;background:var(--clay);display:inline-block;}
+  .witem{display:flex;gap:13px;padding:16px 0;border-top:1px solid var(--line2);}
+  .witem:last-child{border-bottom:1px solid var(--line2);}
+  .wnum{flex:0 0 auto;width:22px;height:22px;border-radius:7px;background:var(--clay-soft);color:var(--clay);
+        font-size:12px;font-weight:800;display:grid;place-items:center;margin-top:2px;}
+  .wtext{font-size:15.5px;font-weight:600;line-height:1.55;color:#2B342E;letter-spacing:-.01em;word-break:keep-all;}
+  .wbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:9px;}
+  .wrow{display:flex;gap:11px;align-items:baseline;}
+  .wtag{flex:0 0 46px;font-size:10px;font-weight:800;letter-spacing:.02em;padding-top:3px;white-space:nowrap;}
+  .wrow.wrong .wtag{color:var(--clay);}
+  .wrow.right .wtag{color:var(--green);}
+  .wsent{font-size:15.5px;line-height:1.55;font-weight:600;color:#2B342E;letter-spacing:-.01em;word-break:keep-all;}
+  .bad-mine{color:var(--clay);text-decoration:line-through;text-decoration-thickness:1.5px;text-decoration-color:rgba(180,80,60,.55);}
+  .bad-correct{color:var(--green);background:var(--green-soft);border-radius:5px;padding:1px 5px;font-weight:800;}
+  .miss{display:inline-block;width:2px;height:14px;background:var(--clay);border-radius:1px;vertical-align:-2px;}
+
+  .cheer{display:flex;gap:13px;align-items:center;background:var(--green-soft);border-radius:18px;padding:18px;margin-top:8px;}
+  .cheer .ic{flex:0 0 auto;width:42px;height:42px;border-radius:12px;background:#fff;display:grid;place-items:center;}
+  .cheer .t b{display:block;font-size:15px;font-weight:800;color:var(--green);letter-spacing:-.02em;}
+  .cheer .t span{font-size:13px;color:#5E7A68;}
+
+  .push{margin-top:30px;padding:22px;border:1.5px solid var(--line);border-radius:20px;background:#fff;}
+  .push-top{display:flex;align-items:center;gap:13px;margin-bottom:14px;}
+  .push-ic{width:44px;height:44px;border-radius:13px;border:1.5px solid var(--line);display:grid;place-items:center;flex:0 0 auto;transition:.3s;}
+  .push-ic.on{background:var(--green);border-color:var(--green);}
+  .push-top b{font-size:15.5px;font-weight:800;letter-spacing:-.02em;display:block;white-space:nowrap;}
+  .push-top span{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;}
+  .push-desc{font-size:13.5px;line-height:1.65;color:var(--muted2);margin:0 0 18px;letter-spacing:-.01em;word-break:keep-all;}
+  .push-actions{display:flex;flex-direction:column;gap:10px;}
+  .push-btn{width:100%;border:none;cursor:pointer;font-weight:700;font-size:14.5px;padding:14px;border-radius:13px;
+            transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;}
+
+  .note{margin-top:8px;padding:16px;border-radius:14px;background:#FAFAF8;border:1px solid var(--line);
+        font-size:13.5px;line-height:1.6;color:var(--muted2);word-break:keep-all;}
+  .redolog{margin-top:28px;border:1.5px solid var(--line);border-radius:18px;overflow:hidden;}
+  .redolog-h{padding:14px 18px;background:#FAFBFA;border-bottom:1px solid var(--line2);display:flex;
+             align-items:center;justify-content:space-between;font-size:12.5px;font-weight:800;color:var(--ink);letter-spacing:-.01em;}
+  .redolog-h .sum{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:0;}
+  .redorow{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;}
+  .redorow+.redorow{border-top:1px solid var(--line2);}
+  .redodate{font-size:14.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
+  .redodate small{color:var(--muted);font-weight:600;margin-left:7px;font-size:12px;}
+  .redochip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;padding:5px 11px;border-radius:999px;white-space:nowrap;}
+  .redochip.done{background:var(--green-soft);color:var(--green);}
+  .redochip.todo{background:#FBF1E6;color:#B0792E;}
+  .datefield{margin-bottom:24px;}
+  .redo-status{display:flex;align-items:center;justify-content:space-between;margin-top:16px;padding:14px 16px;border:1.5px solid var(--line);border-radius:14px;}
+  .redolabel{font-size:13.5px;font-weight:700;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;}
+
+  .toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(20px);
+         background:var(--ink);color:#fff;font-size:13.5px;font-weight:600;padding:13px 20px;border-radius:13px;
+         box-shadow:0 14px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.3s;z-index:80;
+         display:flex;align-items:center;gap:9px;white-space:nowrap;max-width:90vw;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  .hidden{display:none !important;}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;
+        border-radius:50%;animation:sp .7s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+</style>
 </head>
 <body>
-<div class="header"><h2 style="margin:0;">📝 옥구초 성적 조회 앱</h2></div>
-<div class="tab-bar">
-  <div id="t1" class="tab active" onclick="switchTab('exam1')">영어 시험</div>
-  <div id="t2" class="tab" onclick="switchTab('exam2')">받아쓰기</div>
-</div>
-<div class="container">
-  <div id="loginArea" class="card">
-    <label>이름 선택</label><select id="studentName"><option>명단 로딩 중...</option></select>
-    <label>확인코드</label><input type="password" id="password" placeholder="코드를 입력하세요">
-    <button id="loginBtn" onclick="login()">성적 확인하기</button>
-  </div>
-  <div id="changePwArea" class="card" style="border: 2px solid #ff9800;">
-    <h3 style="color: #ff9800; margin-top: 0;">🔒 코드 보안 설정</h3>
-    <input type="password" id="newPassword" placeholder="새 코드 입력">
-    <button style="background: #ff9800;" onclick="changePassword()">설정 완료 및 결과 보기</button>
-  </div>
-  <div id="resultArea" class="card">
-    <h3 id="resName" style="text-align:center; margin-bottom: 5px;"></h3>
-    <p id="resExamType" style="text-align:center; color:#888; margin-top:0; font-size: 14px;"></p>
-    <div class="score-circle" id="resScore">0점</div>
-    <div id="resExtra" class="wrong-info"></div>
+<div class="wrap">
 
-    <div class="push-box">
-      <p class="push-title">🔔 학부모 푸시 알림</p>
-      <p class="push-desc">이 기기에서 한 번만 알림을 켜두면, 성적이 등록되거나 수정될 때 알림을 받을 수 있습니다.</p>
-      <button class="push-btn" onclick="enableLoggedInParentScorePush()">학부모 푸시 알림 켜기</button>
-      <button class="push-test-btn" onclick="testLoggedInParentScorePush()">푸시 테스트 보내기</button>
+  <!-- ============ LOGIN ============ -->
+  <div id="loginView" class="view">
+    <div class="scroll"><div class="pad centerpad">
+      <div class="brandrow">
+        <div class="brand"><div class="mark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 19c0-7 5-12.5 14-13.5C19.7 14 14.5 19.7 5 19Z" fill="#fff"/><path d="M8 17c2.3-3.6 5-6 8-7.5" stroke="#1C5C3C" stroke-width="1.3" stroke-linecap="round" opacity=".5"/></svg>
+        </div><b>옥구초등학교</b></div>
+        <span class="kicker">성적 조회</span>
+      </div>
+      <div class="centermain">
+        <h1 class="title">우리 아이<br>성적 확인하기</h1>
+        <div class="field">
+          <div class="flabel">이름</div>
+          <div class="selectfield ph" id="nameField">
+            <select id="studentName"><option value="">명단 로딩 중...</option></select>
+            <span class="chev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BCC3BE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <div class="flabel">확인코드</div>
+          <div class="code" id="codeDots"></div>
+          <div class="keypad" id="keypad"></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="footer">
+      <button id="loginBtn" class="btn btn-pri" type="button" disabled>성적 확인하기</button>
     </div>
-
-    <button onclick="location.reload()" class="home-btn">홈으로 돌아가기</button>
   </div>
+
+  <!-- ============ SETUP (first login) ============ -->
+  <div id="setupView" class="view hidden">
+    <div class="scroll"><div class="pad centerpad">
+      <div class="brandrow">
+        <button class="backbtn" type="button" onclick="goHome()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#15211A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>뒤로
+        </button>
+        <span class="kicker">최초 1회 설정</span>
+      </div>
+      <div class="centermain">
+        <h1 class="title">나만의<br>확인코드 만들기</h1>
+        <p class="push-desc" style="margin:0 0 30px;">다음부터 내 성적을 안전하게 보려면, 숫자 코드를 새로 정해 주세요. 코드는 나만 알고 있어야 해요.</p>
+        <div class="field" style="margin-bottom:0;">
+          <div class="flabel">새 확인코드</div>
+          <div class="code" id="newCodeDots"></div>
+          <div class="keypad" id="newKeypad"></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="footer">
+      <button id="setupBtn" class="btn btn-pri" type="button" disabled>설정 완료 · 결과 보기</button>
+    </div>
+  </div>
+
+  <!-- ============ RESULT ============ -->
+  <div id="resultView" class="view hidden">
+    <div class="scroll"><div class="pad">
+      <div class="brandrow" style="padding-bottom:18px;">
+        <div class="brand"><div class="mark">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 19c0-7 5-12.5 14-13.5C19.7 14 14.5 19.7 5 19Z" fill="#fff"/><path d="M8 17c2.3-3.6 5-6 8-7.5" stroke="#1C5C3C" stroke-width="1.3" stroke-linecap="round" opacity=".5"/></svg>
+        </div><b>옥구초등학교</b></div>
+        <span class="kicker">성적 조회</span>
+      </div>
+      <h2 class="res-name" id="resName"></h2>
+      <div class="tabs" id="resultTabs">
+        <button class="tab on" data-tab="exam1" type="button">영어 시험<span class="ink"></span></button>
+        <button class="tab" data-tab="exam2" type="button">받아쓰기<span class="ink"></span></button>
+      </div>
+      <div id="resultBody"></div>
+
+      <div class="push">
+        <div class="push-top">
+          <div class="push-ic" id="pushIc">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+          </div>
+          <div><b>학부모 푸시 알림</b><span id="pushStatus">아직 꺼져 있어요</span></div>
+        </div>
+        <p class="push-desc">이 기기에서 한 번만 알림을 켜두면, 성적이 등록되거나 수정될 때 학부모님께 바로 알림을 보내드려요.</p>
+        <div class="push-actions">
+          <button id="pushEnableBtn" class="push-btn" style="background:var(--green);color:#fff;" type="button" onclick="enableLoggedInParentScorePush()">알림 켜기</button>
+          <button class="push-btn" style="background:none;border:1.5px solid var(--line);color:var(--ink);" type="button" onclick="testLoggedInParentScorePush()">테스트 알림 보내기</button>
+        </div>
+      </div>
+
+      <button class="btn btn-ghost" style="margin-top:18px;" type="button" onclick="goHome()">홈으로 돌아가기</button>
+    </div></div>
+  </div>
+
 </div>
+<div class="toast" id="toast"></div>
+
 <script>
-  let currentTab = 'exam1';
-  let currentPageId = '';
-  let currentStudentName = '';
-  let currentPassword = '';
+/* =========================================================
+   상태
+========================================================= */
+var currentTab = 'exam1';      // 로그인 화면의 시험 탭
+var resultTab  = 'exam1';      // 결과 화면의 시험 탭
+var sessionIdx = 0;            // 선택한 시험(날짜) 인덱스
+var code = '';                 // 로그인 확인코드
+var newCode = '';              // 신규 코드(최초 설정)
+var session = { name:'', code:'', pageId:'' };   // 로그인 후 보관 (영어/받아쓰기 모두 조회용)
+var examMeta = { exam1:{label:'영어 시험', kind:'영어 시험 결과'}, exam2:{label:'받아쓰기', kind:'받아쓰기 결과'} };
+var cacheResult = {};          // tab -> studentInfo (재조회 캐시)
 
-  window.onload = () => loadList();
+/* =========================================================
+   백엔드 어댑터
+   - Apps Script 안에서 열리면 google.script.run 사용
+   - GitHub Pages에서 열리면 기존 Apps Script 배포 URL을 JSONP로 호출
+========================================================= */
+var SCORE_API_URL = 'https://script.google.com/macros/s/AKfycbxlX0fc3nSvZE2JmWNNyaG7zQ-BKvUfMGmRdO3qhSmm_mv7lxLJhE_fKMvbeLLF5-Jd/exec';
+var HAS_GS = (typeof google !== 'undefined' && google.script && google.script.run);
 
-  function switchTab(type) {
-    currentTab = type;
-    document.getElementById('t1').className = (type === 'exam1') ? 'tab active' : 'tab';
-    document.getElementById('t2').className = (type === 'exam2') ? 'tab active' : 'tab';
-    loadList();
-  }
-
-  function loadList() {
-    const select = document.getElementById('studentName');
-    select.innerHTML = '<option>명단 로딩 중...</option>';
-    google.script.run.withSuccessHandler(list => {
-      select.innerHTML = '<option value="">이름을 선택하세요</option>';
-      list.forEach(s => {
-        let opt = document.createElement('option');
-        opt.value = s.name; opt.text = s.name;
-        select.add(opt);
-      });
-    }).getStudentList(currentTab);
-  }
-
-  function login() {
-    const name = document.getElementById('studentName').value;
-    const pw = document.getElementById('password').value;
-    const btn = document.getElementById('loginBtn');
-
-    if (!name || !pw) {
-      alert('이름과 확인코드를 입력해 주세요.');
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = '확인 중...';
-
-    google.script.run
-      .withSuccessHandler(res => {
-        btn.disabled = false;
-        btn.textContent = '성적 확인하기';
-
-        if (res.success) {
-          currentPageId = res.pageId;
-          currentStudentName = name;
-          currentPassword = pw;
-
-          if (res.isFirst) {
-            document.getElementById('loginArea').style.display = 'none';
-            document.getElementById('changePwArea').style.display = 'block';
-          } else {
-            showResult(res.studentInfo);
-          }
-        } else {
-          alert('정보가 올바르지 않습니다.');
-        }
-      })
-      .withFailureHandler(error => {
-        btn.disabled = false;
-        btn.textContent = '성적 확인하기';
-        alert('조회 오류: ' + error.message);
-      })
-      .getStudentData(name, pw, currentTab);
-  }
-
-  function changePassword() {
-    const newPw = document.getElementById('newPassword').value;
-    if (!newPw) {
-      alert('새 확인코드를 입력해 주세요.');
-      return;
-    }
-    google.script.run.withSuccessHandler(() => {
-      alert('설정 완료! 다시 로그인해 주세요.');
-      location.reload();
-    }).updatePassword(currentPageId, newPw, currentTab);
-  }
-
-  function showResult(info) {
-    document.getElementById('loginArea').style.display = 'none';
-    document.getElementById('changePwArea').style.display = 'none';
-    document.getElementById('resultArea').style.display = 'block';
-
-    document.getElementById('resName').innerText = info.name + " 어린이";
-    document.getElementById('resExamType').innerText = (currentTab === 'exam1' ? '📖 영어 시험 결과' : '✏️ 받아쓰기 결과');
-    document.getElementById('resScore').innerText = formatScore(info.score);
-
-    const extraEl = document.getElementById('resExtra');
-    if (info.extra === "틀린 문장이 없습니다. 참 잘했어요! 💯") {
-      extraEl.style.color = "#2e7d32";
-      extraEl.style.background = "#e8f5e9";
-      extraEl.innerHTML = "<strong>🎉 축하합니다!</strong><br>" + escapeHtml(info.extra);
+function gs(fn){
+  var args = Array.prototype.slice.call(arguments, 1);
+  return new Promise(function(resolve, reject){
+    if (HAS_GS){
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn].apply(google.script.run, args);
     } else {
-      extraEl.style.color = "#d32f2f";
-      extraEl.style.background = "#ffebee";
-      extraEl.innerHTML = "<strong>❌ 내가 틀린 문장:</strong><br>" + escapeHtml(info.extra || '결과가 없습니다.');
+      callScoreApi_(fn, args).then(resolve).catch(function(err){
+        if (MOCK[fn]) MOCK[fn](resolve, reject, args);
+        else reject(err);
+      });
+    }
+  });
+}
+
+function callScoreApi_(fn, args){
+  var params = {};
+  if (fn === 'getStudentList') {
+    params = { dbType: args[0] };
+  } else if (fn === 'getStudentData') {
+    params = { name: args[0], password: args[1], dbType: args[2] };
+  } else if (fn === 'updatePassword') {
+    params = { pageId: args[0], newPassword: args[1], dbType: args[2] };
+  } else if (fn === 'saveParentPushSubscription') {
+    params = { name: args[0], password: args[1], dbType: args[2], subscriptionJson: args[3] };
+  } else if (fn === 'sendParentPushTest') {
+    params = { name: args[0], password: args[1], dbType: args[2] };
+  } else {
+    return Promise.reject(new Error('지원하지 않는 기능: ' + fn));
+  }
+
+  return new Promise(function(resolve, reject){
+    var callbackName = '__scoreCb_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+    var script = document.createElement('script');
+    var query = new URLSearchParams(Object.assign({}, params, {
+      api: fn,
+      callback: callbackName
+    }));
+    var timer = setTimeout(function(){
+      cleanup();
+      reject(new Error('서버 응답 시간이 초과되었습니다.'));
+    }, 30000);
+
+    function cleanup(){
+      clearTimeout(timer);
+      delete window[callbackName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[callbackName] = function(data){
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = function(){
+      cleanup();
+      reject(new Error('성적 조회 서버를 불러오지 못했습니다.'));
+    };
+    script.src = SCORE_API_URL + '?' + query.toString();
+    document.body.appendChild(script);
+  });
+}
+
+/* ---- 미리보기용 샘플 데이터 ---- */
+var MOCK = (function(){
+  var DB = {
+    exam1: {
+      '김민준': {pw:'1234', isFirst:false, sessions:[
+        {date:'6월 5일', score:80, redone:false, wrong:[{mine:'I have to cats.',correct:'I have two cats.'},{mine:'The sky is blue todays.',correct:'The sky is blue today.'}]},
+        {date:'6월 3일', score:90, redone:true,  wrong:[{mine:'We plays soccer after school.',correct:'We play soccer after school.'}]},
+        {date:'5월 29일', score:100, redone:true, wrong:[]}
+      ]},
+      '이서연': {pw:'1234', isFirst:false, sessions:[
+        {date:'6월 5일', score:100, redone:true, wrong:[]},
+        {date:'6월 3일', score:90, redone:true,  wrong:[{mine:'He run fast.',correct:'He runs fast.'}]}
+      ]},
+      '박지호': {pw:'',      isFirst:true,  sessions:[
+        {date:'6월 5일', score:90, redone:false, wrong:[{mine:'We plays soccer after school.',correct:'We play soccer after school.'}]}
+      ]},
+      '최하윤': {pw:'1234', isFirst:false, sessions:[
+        {date:'6월 5일', score:70, redone:true,  wrong:[{mine:'She like apples.',correct:'She likes apples.'},{mine:'He go to bed early.',correct:'He goes to bed early.'},{mine:'They is my friends.',correct:'They are my friends.'}]},
+        {date:'6월 1일', score:80, redone:false, wrong:[{mine:'I has a book.',correct:'I have a book.'},{mine:'It are hot.',correct:'It is hot.'}]}
+      ]}
+    },
+    exam2: {
+      '김민준': {pw:'1234', isFirst:false, sessions:[
+        {date:'6월 4일', score:90, redone:true,  wrong:[{mine:'햇볕이 따뜻하게 비춘다.',correct:'햇볕이 따뜻하게 비친다.'}]},
+        {date:'6월 1일', score:100, redone:true, wrong:[]}
+      ]},
+      '이서연': {pw:'1234', isFirst:false, sessions:[
+        {date:'6월 4일', score:100, redone:true, wrong:[]}
+      ]},
+      '박지호': {pw:'',      isFirst:true,  sessions:[
+        {date:'6월 4일', score:80, redone:false, wrong:[{mine:'시내물이 졸졸 흐른다.',correct:'시냇물이 졸졸 흐른다.'},{mine:'꽃잎이 바람에 날아간다.',correct:'꽃잎이 바람에 날린다.'}]}
+      ]},
+      '최하윤': {pw:'1234', isFirst:false, sessions:[
+        {date:'6월 4일', score:90, redone:false, wrong:[{mine:'나무잎이 우수수 떨어진다.',correct:'나뭇잎이 우수수 떨어진다.'}]},
+        {date:'5월 30일', score:90, redone:true,  wrong:[{mine:'시계가 째각째각 간다.',correct:'시계가 째깍째깍 간다.'}]}
+      ]}
+    }
+  };
+  function delay(fn){ setTimeout(fn, 360); }
+  return {
+    getStudentList: function(res,rej,a){ var tab=a[0]; delay(function(){ res(Object.keys(DB[tab]).map(function(n){return {name:n};})); }); },
+    getStudentData: function(res,rej,a){
+      var name=a[0], pw=a[1], tab=a[2]; var s=DB[tab][name];
+      delay(function(){
+        if(!s){ res({success:false}); return; }
+        if(s.isFirst){ res({success:true, pageId:tab+'_'+name, isFirst:true}); return; }
+        if(String(pw)!==String(s.pw)){ res({success:false}); return; }
+        res({success:true, pageId:tab+'_'+name, isFirst:false, studentInfo:{name:name, sessions:s.sessions}});
+      });
+    },
+    updatePassword: function(res,rej,a){ var pageId=a[0], np=a[1], tab=a[2];
+      delay(function(){ var name=pageId.split('_')[1]; DB[tab][name].pw=np; DB[tab][name].isFirst=false; res({success:true}); }); },
+    saveParentPushSubscription: function(res){ delay(function(){ res({success:true}); }); },
+    sendParentPushTest: function(res){ delay(function(){ res({success:true}); }); }
+  };
+})();
+
+/* =========================================================
+   공통 UI 헬퍼
+========================================================= */
+function $(id){ return document.getElementById(id); }
+function show(view){
+  ['loginView','setupView','resultView'].forEach(function(v){ $(v).classList.add('hidden'); });
+  var el=$(view); el.classList.remove('hidden');
+  // 재진입 시 진입 애니메이션 재생
+  el.style.animation='none'; void el.offsetWidth; el.style.animation='';
+  document.querySelector('#'+view+' .scroll').scrollTop=0;
+}
+var toastTimer;
+function toast(msg){
+  var t=$('toast'); t.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>'+escapeHtml(msg);
+  t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); }, 2400);
+}
+function escapeHtml(v){ return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+/* =========================================================
+   키패드 (네이티브 키보드 없이 → 화면 확대 없음)
+========================================================= */
+function buildKeypad(container, onPress, onBack){
+  var html='';
+  ['1','2','3','4','5','6','7','8','9'].forEach(function(d){ html+='<button type="button" class="key" data-d="'+d+'">'+d+'</button>'; });
+  html+='<span class="key-empty"></span><button type="button" class="key" data-d="0">0</button><button type="button" class="key kdel" data-back="1" aria-label="지우기">⌫</button>';
+  container.innerHTML=html;
+  container.onclick=function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    if(b.dataset.back) onBack(); else if(b.dataset.d) onPress(b.dataset.d);
+  };
+}
+function renderDots(container, value){
+  var n=Math.max(4, value.length), h='';
+  for(var i=0;i<n;i++){ h+='<div class="cell'+(value[i]?' filled':'')+'">'+(value[i]?'•':'')+'</div>'; }
+  container.innerHTML=h;
+}
+
+/* =========================================================
+   로그인 화면
+========================================================= */
+function loadList(){
+  var sel=$('studentName'); sel.innerHTML='<option value="">명단 로딩 중...</option>';
+  $('nameField').classList.add('ph');
+  gs('getStudentList', currentTab).then(function(list){
+    sel.innerHTML='<option value="">이름을 선택하세요</option>';
+    (list||[]).forEach(function(s){ var o=document.createElement('option'); o.value=s.name; o.text=s.name; sel.add(o); });
+  }).catch(function(err){ sel.innerHTML='<option value="">명단을 불러오지 못했어요</option>'; });
+}
+function refreshLoginBtn(){ $('loginBtn').disabled = !($('studentName').value && code.length>0); }
+
+function login(){
+  var name=$('studentName').value;
+  if(!name || !code){ toast('이름과 확인코드를 입력해 주세요.'); return; }
+  var btn=$('loginBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> 확인 중...';
+  gs('getStudentData', name, code, currentTab).then(function(res){
+    btn.disabled=false; btn.textContent='성적 확인하기';
+    if(res && res.success){
+      session={ name:name, code:code, pageId:res.pageId };
+      if(res.isFirst){ newCode=''; renderDots($('newCodeDots'), ''); $('setupBtn').disabled=true; show('setupView'); }
+      else { cacheResult={}; cacheResult[currentTab]=res.studentInfo; openResult(currentTab); }
+    } else {
+      toast('정보가 올바르지 않습니다.');
+    }
+  }).catch(function(err){
+    btn.disabled=false; btn.textContent='성적 확인하기';
+    toast('조회 오류: '+(err && err.message ? err.message : err));
+  });
+}
+
+/* =========================================================
+   코드 보안 설정 (최초 1회)
+========================================================= */
+function changePassword(){
+  if(newCode.length===0){ toast('새 확인코드를 입력해 주세요.'); return; }
+  var btn=$('setupBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> 저장 중...';
+  gs('updatePassword', session.pageId, newCode, currentTab).then(function(){
+    toast('설정 완료! 새 코드로 결과를 확인할게요.');
+    session.code=newCode;
+    // 새 코드로 즉시 재조회
+    return gs('getStudentData', session.name, newCode, currentTab);
+  }).then(function(res){
+    btn.disabled=false; btn.textContent='설정 완료 · 결과 보기';
+    if(res && res.success && !res.isFirst){ cacheResult={}; cacheResult[currentTab]=res.studentInfo; code=newCode; openResult(currentTab); }
+    else { goHome(); }
+  }).catch(function(err){
+    btn.disabled=false; btn.textContent='설정 완료 · 결과 보기';
+    toast('설정 오류: '+(err && err.message ? err.message : err));
+  });
+}
+
+/* =========================================================
+   결과 화면 — 한 번 로그인으로 영어/받아쓰기 모두 조회
+========================================================= */
+function openResult(tab){
+  resultTab=tab; sessionIdx=0;
+  $('resName').textContent=session.name+' 어린이';
+  [].forEach.call($('resultTabs').children, function(b){ b.classList.toggle('on', b.dataset.tab===tab); });
+  show('resultView');
+  renderResultBody();
+}
+function setResultTab(tab){
+  if(tab===resultTab) return;
+  resultTab=tab; sessionIdx=0;
+  [].forEach.call($('resultTabs').children, function(b){ b.classList.toggle('on', b.dataset.tab===tab); });
+  renderResultBody();
+}
+function renderResultBody(){
+  var body=$('resultBody'); var tab=resultTab;
+  body.style.animation='none'; void body.offsetWidth; body.style.animation='';
+  if(cacheResult[tab]){ renderSessions(cacheResult[tab], tab); return; }
+  // 다른 시험 탭 — 같은 코드로 재조회
+  body.innerHTML='<div class="scorewrap"><span class="score" style="color:#D6DDD8;">··<span class="u">점</span></span></div><div class="note">불러오는 중…</div>';
+  gs('getStudentData', session.name, session.code, tab).then(function(res){
+    if(res && res.success && res.studentInfo){ cacheResult[tab]=res.studentInfo; renderSessions(res.studentInfo, tab); }
+    else if(res && res.isFirst){ body.innerHTML='<div class="note"><b style="color:var(--ink);">'+examMeta[tab].label+' 코드가 아직 없어요.</b><br>홈에서 '+examMeta[tab].label+'을(를) 선택해 코드를 먼저 만들어 주세요.</div>'; }
+    else { body.innerHTML='<div class="note"><b style="color:var(--ink);">이 시험은 확인코드가 달라요.</b><br>'+examMeta[tab].label+' 결과는 홈에서 다시 로그인해 확인해 주세요.</div>'; }
+  }).catch(function(err){ body.innerHTML='<div class="note">조회 오류: '+escapeHtml(err && err.message ? err.message : ''+err)+'</div>'; });
+}
+function paintResult(info, tab){
+  var meta=examMeta[tab];
+  var scoreText=formatScore(info.score);
+  var extra=(info.extra||'').trim();
+  var perfect=/틀린 문장이 없|참 잘했어요|💯/.test(extra) || /^100/.test(String(info.score));
+  var h='';
+  h+='<div class="res-kicker">'+meta.kind+'</div>';
+  h+='<div class="scorewrap"><span class="score">'+escapeHtml(scoreText.num)+'<span class="u">'+escapeHtml(scoreText.unit)+'</span></span></div>';
+  if(perfect){
+    h+='<span class="scoretag" style="background:#EAF2EC;color:#1C5C3C;">만점 · 참 잘했어요</span>';
+    h+='<div class="cheer"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="#1C5C3C"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9L12 2.5Z"/></svg></div><div class="t"><b>틀린 문장이 없어요!</b><span>참 잘했어요. 이대로 쭉 가요 👍</span></div></div>';
+  } else {
+    var lines=extra.split(/\r?\n/).map(function(s){return s.replace(/^[\s\u2022\-•]+/,'').trim();}).filter(Boolean);
+    h+='<span class="scoretag" style="background:#F2F4F2;color:#79827C;">'+escapeHtml(meta.label)+' 결과</span>';
+    h+='<div class="rule"></div>';
+    h+='<div class="meta"><span class="k">시험 종류</span><span class="v">'+escapeHtml(meta.label)+'</span></div>';
+    h+='<div class="meta"><span class="k">점수</span><span class="v">'+escapeHtml(scoreText.num+scoreText.unit)+'</span></div>';
+    var pairs = (info.wrong && info.wrong.length && typeof info.wrong[0]==='object') ? info.wrong : null;
+    if(pairs){
+      h+='<div class="wrong-h"><span class="dot"></span>틀린 문장 · 정답 비교 '+pairs.length+'개</div><div>';
+      pairs.forEach(function(w,i){
+        var dh=diffHtml(String(w.mine!=null?w.mine:''), String(w.correct!=null?w.correct:''));
+        h+='<div class="witem"><span class="wnum">'+(i+1)+'</span><div class="wbody">'+
+           '<div class="wrow wrong"><span class="wtag">내 답안</span><span class="wsent">'+dh.mine+'</span></div>'+
+           '<div class="wrow right"><span class="wtag">정답</span><span class="wsent">'+dh.correct+'</span></div></div></div>';
+      });
+      h+='</div>';
+    } else if(lines.length){
+      h+='<div class="wrong-h"><span class="dot"></span>내가 틀린 문장 '+lines.length+'개</div><div>';
+      lines.forEach(function(w,i){ h+='<div class="witem"><span class="wnum">'+(i+1)+'</span><span class="wtext">'+escapeHtml(w)+'</span></div>'; });
+      h+='</div>';
+    } else {
+      h+='<div class="note">상세 결과가 없습니다.</div>';
+    }
+    if(info.redoLog && info.redoLog.length){
+      var doneN=info.redoLog.filter(function(r){return r.done;}).length;
+      h+='<div class="redolog"><div class="redolog-h"><span>오답 다시쓰기 기록</span><span class="sum">'+doneN+'/'+info.redoLog.length+' 완료</span></div>';
+      info.redoLog.forEach(function(r){
+        h+='<div class="redorow"><span class="redodate">'+escapeHtml(r.date)+(r.label?' <small>'+escapeHtml(r.label)+'</small>':'')+'</span>'+(r.done
+          ? '<span class="redochip done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>다시 썼어요</span>'
+          : '<span class="redochip todo">아직이에요</span>')+'</div>';
+      });
+      h+='</div>';
     }
   }
-
-  function formatScore(score) {
-    if (score === null || score === undefined || score === '') return '결과 없음';
-    const text = String(score);
-    return /^\d+(\.\d+)?$/.test(text) ? text + '점' : text;
+  $('resultBody').innerHTML=h;
+}
+function renderSessions(info, tab){
+  var sessions=(info && info.sessions && info.sessions.length) ? info.sessions : null;
+  if(!sessions){ paintResult(info, tab); return; }
+  if(sessionIdx>sessions.length-1) sessionIdx=0;
+  var opts='';
+  sessions.forEach(function(s,i){ opts+='<option value="'+i+'"'+(i===sessionIdx?' selected':'')+'>'+escapeHtml(s.date)+(i===0?' · 최근':'')+'</option>'; });
+  var h='<div class="field datefield"><div class="flabel">시험 날짜</div><div class="selectfield"><select id="dateSel">'+opts+'</select><span class="chev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BCC3BE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></div></div><div id="sessionBody"></div>';
+  $('resultBody').innerHTML=h;
+  $('dateSel').addEventListener('change', function(){ sessionIdx=parseInt(this.value,10)||0; var sb=$('sessionBody'); sb.style.animation='none'; void sb.offsetWidth; sb.style.animation='fade .3s cubic-bezier(.2,.8,.2,1)'; paintSession(sessions[sessionIdx], tab); });
+  paintSession(sessions[sessionIdx], tab);
+}
+function paintSession(s, tab){
+  var meta=examMeta[tab];
+  var scoreText=formatScore(s.score);
+  var pairs=(s.wrong && s.wrong.length && typeof s.wrong[0]==='object') ? s.wrong : null;
+  var perfect=!pairs || pairs.length===0;
+  var h='';
+  h+='<div class="res-kicker">'+meta.kind+'</div>';
+  h+='<div class="scorewrap"><span class="score">'+escapeHtml(scoreText.num)+'<span class="u">'+escapeHtml(scoreText.unit)+'</span></span></div>';
+  h+=perfect
+    ? '<span class="scoretag" style="background:#EAF2EC;color:#1C5C3C;">만점 · 참 잘했어요</span>'
+    : '<span class="scoretag" style="background:#F2F4F2;color:#79827C;">'+pairs.length+'문장 틀림</span>';
+  if(!perfect){
+    h+='<div class="redo-status"><span class="redolabel">오답 다시쓰기</span>'+(s.redone
+      ? '<span class="redochip done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>다시 썼어요</span>'
+      : '<span class="redochip todo">아직이에요</span>')+'</div>';
   }
-
-  function escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  if(perfect){
+    h+='<div class="cheer"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="#1C5C3C"><path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9L12 2.5Z"/></svg></div><div class="t"><b>틀린 문장이 없어요!</b><span>참 잘했어요. 이대로 쭉 가요 👍</span></div></div>';
+  } else {
+    h+='<div class="rule"></div>';
+    h+='<div class="meta"><span class="k">시험 종류</span><span class="v">'+escapeHtml(meta.label)+'</span></div>';
+    h+='<div class="meta"><span class="k">점수</span><span class="v">'+escapeHtml(scoreText.num+scoreText.unit)+'</span></div>';
+    h+='<div class="wrong-h"><span class="dot"></span>틀린 문장 · 정답 비교 '+pairs.length+'개</div><div>';
+    pairs.forEach(function(w,i){
+      var dh=diffHtml(String(w.mine!=null?w.mine:''), String(w.correct!=null?w.correct:''));
+      h+='<div class="witem"><span class="wnum">'+(i+1)+'</span><div class="wbody"><div class="wrow wrong"><span class="wtag">내 답안</span><span class="wsent">'+dh.mine+'</span></div><div class="wrow right"><span class="wtag">정답</span><span class="wsent">'+dh.correct+'</span></div></div></div>';
+    });
+    h+='</div>';
   }
+  $('sessionBody').innerHTML=h;
+}
+function formatScore(score){
+  if(score===null||score===undefined||score===''){ return {num:'결과', unit:' 없음'}; }
+  var text=String(score);
+  if(/^\d+(\.\d+)?$/.test(text)) return {num:text, unit:'점'};
+  return {num:text, unit:''};
+}
 
-  function enableLoggedInParentScorePush() {
-    enableParentScorePush(currentStudentName, currentPassword, currentTab);
-  }
+/* 문자 단위 비교: 공통 앞/뒤를 제외한 다른 부분만 반환 */
+function diffParts(a,b){
+  var min=Math.min(a.length,b.length);
+  var p=0; while(p<min && a[p]===b[p]) p++;
+  var s=0; while(s<min-p && a[a.length-1-s]===b[b.length-1-s]) s++;
+  return { a:[a.slice(0,p), a.slice(p,a.length-s), a.slice(a.length-s)],
+           b:[b.slice(0,p), b.slice(p,b.length-s), b.slice(b.length-s)] };
+}
+function diffHtml(mine, correct){
+  var d=diffParts(mine, correct);
+  var mid=d.a[1] ? '<span class="bad-mine">'+escapeHtml(d.a[1])+'</span>' : '<span class="miss"></span>';
+  return {
+    mine: escapeHtml(d.a[0])+mid+escapeHtml(d.a[2]),
+    correct: escapeHtml(d.b[0])+'<span class="bad-correct">'+escapeHtml(d.b[1])+'</span>'+escapeHtml(d.b[2])
+  };
+}
 
-  function testLoggedInParentScorePush() {
-    testParentScorePush(currentStudentName, currentPassword, currentTab);
-  }
-</script>
+function goHome(){
+  code=''; newCode=''; cacheResult={};
+  renderDots($('codeDots'), '');
+  $('studentName').selectedIndex=0; $('nameField').classList.add('ph');
+  refreshLoginBtn();
+  currentTab='exam1';
+  loadList();
+  show('loginView');
+}
 
-<script>
-const SCORE_PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
+/* =========================================================
+   초기화
+========================================================= */
+window.addEventListener('load', function(){
+  // 키패드
+  buildKeypad($('keypad'),
+    function(d){ if(code.length<4){ code+=d; renderDots($('codeDots'), code); refreshLoginBtn(); } },
+    function(){ code=code.slice(0,-1); renderDots($('codeDots'), code); refreshLoginBtn(); });
+  buildKeypad($('newKeypad'),
+    function(d){ if(newCode.length<4){ newCode+=d; renderDots($('newCodeDots'), newCode); $('setupBtn').disabled=newCode.length===0; } },
+    function(){ newCode=newCode.slice(0,-1); renderDots($('newCodeDots'), newCode); $('setupBtn').disabled=newCode.length===0; });
+  renderDots($('codeDots'), ''); renderDots($('newCodeDots'), '');
 
-function scoreUrlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  // 탭
+  $('resultTabs').addEventListener('click', function(e){ var b=e.target.closest('.tab'); if(b) setResultTab(b.dataset.tab); });
+  // 이름 선택
+  $('studentName').addEventListener('change', function(){ $('nameField').classList.toggle('ph', !this.value); refreshLoginBtn(); });
+  // 버튼
+  $('loginBtn').addEventListener('click', login);
+  $('setupBtn').addEventListener('click', changePassword);
+
+  loadList();
+});
+
+/* =========================================================
+   학부모 푸시 알림 (원본 로직 유지)
+========================================================= */
+var SCORE_PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
+
+function scoreUrlBase64ToUint8Array(base64String){
+  var padding='='.repeat((4 - base64String.length % 4) % 4);
+  var base64=(base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+  var rawData=atob(base64); var outputArray=new Uint8Array(rawData.length);
+  for(var i=0;i<rawData.length;i++) outputArray[i]=rawData.charCodeAt(i);
   return outputArray;
 }
-
-function scorePushSupported() {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+function scorePushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function getScorePushRegistration(){
+  if(!scorePushSupported()) throw new Error('이 기기는 Web Push를 지원하지 않습니다.');
+  return navigator.serviceWorker.register('sw.js?v=score-push-20260605');
+}
+function markPushOn(){
+  $('pushIc').classList.add('on');
+  $('pushIc').innerHTML='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>';
+  $('pushStatus').textContent='알림이 켜져 있어요';
+  var b=$('pushEnableBtn'); b.style.background='#EAF2EC'; b.style.color='#1C5C3C';
+  b.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>알림 켜짐';
 }
 
-async function getScorePushRegistration() {
-  if (!scorePushSupported()) throw new Error('이 기기는 Web Push를 지원하지 않습니다.');
-  return await navigator.serviceWorker.register('sw.js?v=score-push-20260605');
-}
-
-async function enableParentScorePush(studentName, password, dbType) {
-  if (!studentName || !password || !dbType) {
-    alert('학생 이름, 확인코드, 시험 종류가 필요합니다.');
-    return;
+async function enableParentScorePush(studentName, password, dbType){
+  if(!studentName || !password || !dbType){ toast('학생 이름, 확인코드, 시험 종류가 필요합니다.'); return; }
+  if(!scorePushSupported()){
+    alert('이 기기에서는 푸시 알림을 지원하지 않습니다.\n아이폰은 iOS 16.4 이상에서 홈화면에 추가한 뒤 실행해야 합니다.'); return;
   }
-  if (!scorePushSupported()) {
-    alert('이 기기에서는 푸시 알림을 지원하지 않습니다.\n아이폰은 iOS 16.4 이상에서 홈화면에 추가한 뒤 실행해야 합니다.');
-    return;
-  }
-
-  try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      alert('알림 권한을 허용해야 성적 알림을 받을 수 있습니다.');
-      return;
+  try{
+    var permission=await Notification.requestPermission();
+    if(permission!=='granted'){ alert('알림 권한을 허용해야 성적 알림을 받을 수 있습니다.'); return; }
+    var registration=await getScorePushRegistration();
+    var subscription=await registration.pushManager.getSubscription();
+    if(!subscription){
+      subscription=await registration.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:scoreUrlBase64ToUint8Array(SCORE_PUSH_PUBLIC_KEY) });
     }
-
-    const registration = await getScorePushRegistration();
-    let subscription = await registration.pushManager.getSubscription();
-    if (!subscription) {
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: scoreUrlBase64ToUint8Array(SCORE_PUSH_PUBLIC_KEY)
-      });
-    }
-
-    google.script.run
-      .withSuccessHandler(function(result) {
-        if (result && result.success === false) {
-          alert(result.message || '푸시 등록에 실패했습니다.');
-          return;
-        }
-        alert('성적 푸시 알림이 켜졌습니다.');
-      })
-      .withFailureHandler(function(error) {
-        alert('푸시 등록 오류: ' + error.message);
-      })
-      .saveParentPushSubscription(studentName, password, dbType, JSON.stringify(subscription));
-  } catch (error) {
-    alert('푸시 등록 중 오류: ' + error.message);
-  }
+    var result = await gs('saveParentPushSubscription', studentName, password, dbType, JSON.stringify(subscription));
+    if(result && result.success===false){ toast(result.message || '푸시 등록에 실패했습니다.'); return; }
+    markPushOn(); toast('성적 푸시 알림이 켜졌습니다.');
+  }catch(error){ toast('푸시 등록 중 오류: '+error.message); }
 }
-
-function testParentScorePush(studentName, password, dbType) {
-  if (!studentName || !password || !dbType) {
-    alert('학생 이름, 확인코드, 시험 종류가 필요합니다.');
-    return;
-  }
-
-  google.script.run
-    .withSuccessHandler(function(result) {
-      if (result && result.success === false) {
-        alert(result.message || '테스트 푸시 전송에 실패했습니다.');
-        return;
-      }
-      alert('테스트 푸시를 보냈습니다. 알림센터를 확인하세요.');
+function testParentScorePush(studentName, password, dbType){
+  if(!studentName || !password || !dbType){ toast('학생 이름, 확인코드, 시험 종류가 필요합니다.'); return; }
+  gs('sendParentPushTest', studentName, password, dbType)
+    .then(function(result){
+      if(result && result.success===false){ toast(result.message || '테스트 푸시 전송에 실패했습니다.'); return; }
+      toast('테스트 푸시를 보냈습니다. 알림센터를 확인하세요.');
     })
-    .withFailureHandler(function(error) {
-      alert('테스트 푸시 오류: ' + error.message);
-    })
-    .sendParentPushTest(studentName, password, dbType);
+    .catch(function(error){ toast('테스트 푸시 오류: '+error.message); });
 }
+function enableLoggedInParentScorePush(){ enableParentScorePush(session.name, session.code || code, resultTab); }
+function testLoggedInParentScorePush(){ testParentScorePush(session.name, session.code || code, resultTab); }
 </script>
 </body>
 </html>
