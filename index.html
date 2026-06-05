@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { font-family: 'Pretendard', sans-serif; margin: 0; background-color: #f8f9fa; color: #333; }
+    .header { background: #4A90E2; color: white; padding: 25px 20px; text-align: center; }
+    .tab-bar { display: flex; background: white; border-bottom: 1px solid #eee; }
+    .tab { flex: 1; padding: 18px; text-align: center; cursor: pointer; color: #999; border-bottom: 3px solid transparent; transition: 0.3s; font-size: 17px; }
+    .tab.active { color: #4A90E2; border-bottom: 3px solid #4A90E2; font-weight: bold; }
+    .container { padding: 20px; max-width: 500px; margin: auto; }
+    .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    label { font-size: 14px; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
+    select, input { width: 100%; padding: 14px; margin: 8px 0 18px; border: 1px solid #e0e0e0; border-radius: 10px; box-sizing: border-box; font-size: 16px; outline: none; }
+    button { width: 100%; padding: 15px; background: #4A90E2; color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; font-weight: bold; }
+    button:disabled { opacity: .65; cursor: default; }
+    #resultArea, #changePwArea { display: none; }
+    .score-circle { width: 90px; height: 90px; background: #f0f7ff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 15px auto; font-size: 26px; color: #4A90E2; font-weight: bold; border: 2px solid #e1eeff; }
+    .wrong-info { text-align: left; font-size: 15px; color: #d32f2f; background: #ffebee; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.6; word-break: keep-all; }
+    .push-box { margin-top: 20px; padding: 16px; border-radius: 14px; background: #f4f8ff; border: 1px solid #dceaff; }
+    .push-title { margin: 0 0 10px; color: #2f6fb8; font-weight: 800; font-size: 15px; }
+    .push-desc { margin: 0 0 12px; color: #6b7280; font-size: 13px; line-height: 1.5; }
+    .push-btn { background: #2563eb; margin-top: 8px; }
+    .push-test-btn { background: #eef2ff; color: #3155b7; margin-top: 8px; }
+    .home-btn { background:#f1f3f5; color:#666; margin-top:25px; }
+  </style>
+</head>
+<body>
+<div class="header"><h2 style="margin:0;">📝 옥구초 성적 조회 앱</h2></div>
+<div class="tab-bar">
+  <div id="t1" class="tab active" onclick="switchTab('exam1')">영어 시험</div>
+  <div id="t2" class="tab" onclick="switchTab('exam2')">받아쓰기</div>
+</div>
+<div class="container">
+  <div id="loginArea" class="card">
+    <label>이름 선택</label><select id="studentName"><option>명단 로딩 중...</option></select>
+    <label>확인코드</label><input type="password" id="password" placeholder="코드를 입력하세요">
+    <button id="loginBtn" onclick="login()">성적 확인하기</button>
+  </div>
+  <div id="changePwArea" class="card" style="border: 2px solid #ff9800;">
+    <h3 style="color: #ff9800; margin-top: 0;">🔒 코드 보안 설정</h3>
+    <input type="password" id="newPassword" placeholder="새 코드 입력">
+    <button style="background: #ff9800;" onclick="changePassword()">설정 완료 및 결과 보기</button>
+  </div>
+  <div id="resultArea" class="card">
+    <h3 id="resName" style="text-align:center; margin-bottom: 5px;"></h3>
+    <p id="resExamType" style="text-align:center; color:#888; margin-top:0; font-size: 14px;"></p>
+    <div class="score-circle" id="resScore">0점</div>
+    <div id="resExtra" class="wrong-info"></div>
+
+    <div class="push-box">
+      <p class="push-title">🔔 학부모 푸시 알림</p>
+      <p class="push-desc">이 기기에서 한 번만 알림을 켜두면, 성적이 등록되거나 수정될 때 알림을 받을 수 있습니다.</p>
+      <button class="push-btn" onclick="enableLoggedInParentScorePush()">학부모 푸시 알림 켜기</button>
+      <button class="push-test-btn" onclick="testLoggedInParentScorePush()">푸시 테스트 보내기</button>
+    </div>
+
+    <button onclick="location.reload()" class="home-btn">홈으로 돌아가기</button>
+  </div>
+</div>
+<script>
+  let currentTab = 'exam1';
+  let currentPageId = '';
+  let currentStudentName = '';
+  let currentPassword = '';
+
+  window.onload = () => loadList();
+
+  function switchTab(type) {
+    currentTab = type;
+    document.getElementById('t1').className = (type === 'exam1') ? 'tab active' : 'tab';
+    document.getElementById('t2').className = (type === 'exam2') ? 'tab active' : 'tab';
+    loadList();
+  }
+
+  function loadList() {
+    const select = document.getElementById('studentName');
+    select.innerHTML = '<option>명단 로딩 중...</option>';
+    google.script.run.withSuccessHandler(list => {
+      select.innerHTML = '<option value="">이름을 선택하세요</option>';
+      list.forEach(s => {
+        let opt = document.createElement('option');
+        opt.value = s.name; opt.text = s.name;
+        select.add(opt);
+      });
+    }).getStudentList(currentTab);
+  }
+
+  function login() {
+    const name = document.getElementById('studentName').value;
+    const pw = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+
+    if (!name || !pw) {
+      alert('이름과 확인코드를 입력해 주세요.');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '확인 중...';
+
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false;
+        btn.textContent = '성적 확인하기';
+
+        if (res.success) {
+          currentPageId = res.pageId;
+          currentStudentName = name;
+          currentPassword = pw;
+
+          if (res.isFirst) {
+            document.getElementById('loginArea').style.display = 'none';
+            document.getElementById('changePwArea').style.display = 'block';
+          } else {
+            showResult(res.studentInfo);
+          }
+        } else {
+          alert('정보가 올바르지 않습니다.');
+        }
+      })
+      .withFailureHandler(error => {
+        btn.disabled = false;
+        btn.textContent = '성적 확인하기';
+        alert('조회 오류: ' + error.message);
+      })
+      .getStudentData(name, pw, currentTab);
+  }
+
+  function changePassword() {
+    const newPw = document.getElementById('newPassword').value;
+    if (!newPw) {
+      alert('새 확인코드를 입력해 주세요.');
+      return;
+    }
+    google.script.run.withSuccessHandler(() => {
+      alert('설정 완료! 다시 로그인해 주세요.');
+      location.reload();
+    }).updatePassword(currentPageId, newPw, currentTab);
+  }
+
+  function showResult(info) {
+    document.getElementById('loginArea').style.display = 'none';
+    document.getElementById('changePwArea').style.display = 'none';
+    document.getElementById('resultArea').style.display = 'block';
+
+    document.getElementById('resName').innerText = info.name + " 어린이";
+    document.getElementById('resExamType').innerText = (currentTab === 'exam1' ? '📖 영어 시험 결과' : '✏️ 받아쓰기 결과');
+    document.getElementById('resScore').innerText = formatScore(info.score);
+
+    const extraEl = document.getElementById('resExtra');
+    if (info.extra === "틀린 문장이 없습니다. 참 잘했어요! 💯") {
+      extraEl.style.color = "#2e7d32";
+      extraEl.style.background = "#e8f5e9";
+      extraEl.innerHTML = "<strong>🎉 축하합니다!</strong><br>" + escapeHtml(info.extra);
+    } else {
+      extraEl.style.color = "#d32f2f";
+      extraEl.style.background = "#ffebee";
+      extraEl.innerHTML = "<strong>❌ 내가 틀린 문장:</strong><br>" + escapeHtml(info.extra || '결과가 없습니다.');
+    }
+  }
+
+  function formatScore(score) {
+    if (score === null || score === undefined || score === '') return '결과 없음';
+    const text = String(score);
+    return /^\d+(\.\d+)?$/.test(text) ? text + '점' : text;
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function enableLoggedInParentScorePush() {
+    enableParentScorePush(currentStudentName, currentPassword, currentTab);
+  }
+
+  function testLoggedInParentScorePush() {
+    testParentScorePush(currentStudentName, currentPassword, currentTab);
+  }
+</script>
+
+<script>
+const SCORE_PUSH_PUBLIC_KEY = 'BJh74RZxk4VrDHzZTJM7DG6ZZhyyHKyQl_P_5xLxqHC1NK95XO2NBg9Miwv7hPse43wHxGiu80EQQ0wPqSWej-U';
+
+function scoreUrlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function scorePushSupported() {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+
+async function getScorePushRegistration() {
+  if (!scorePushSupported()) throw new Error('이 기기는 Web Push를 지원하지 않습니다.');
+  return await navigator.serviceWorker.register('sw.js?v=score-push-20260605');
+}
+
+async function enableParentScorePush(studentName, password, dbType) {
+  if (!studentName || !password || !dbType) {
+    alert('학생 이름, 확인코드, 시험 종류가 필요합니다.');
+    return;
+  }
+  if (!scorePushSupported()) {
+    alert('이 기기에서는 푸시 알림을 지원하지 않습니다.\n아이폰은 iOS 16.4 이상에서 홈화면에 추가한 뒤 실행해야 합니다.');
+    return;
+  }
+
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      alert('알림 권한을 허용해야 성적 알림을 받을 수 있습니다.');
+      return;
+    }
+
+    const registration = await getScorePushRegistration();
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: scoreUrlBase64ToUint8Array(SCORE_PUSH_PUBLIC_KEY)
+      });
+    }
+
+    google.script.run
+      .withSuccessHandler(function(result) {
+        if (result && result.success === false) {
+          alert(result.message || '푸시 등록에 실패했습니다.');
+          return;
+        }
+        alert('성적 푸시 알림이 켜졌습니다.');
+      })
+      .withFailureHandler(function(error) {
+        alert('푸시 등록 오류: ' + error.message);
+      })
+      .saveParentPushSubscription(studentName, password, dbType, JSON.stringify(subscription));
+  } catch (error) {
+    alert('푸시 등록 중 오류: ' + error.message);
+  }
+}
+
+function testParentScorePush(studentName, password, dbType) {
+  if (!studentName || !password || !dbType) {
+    alert('학생 이름, 확인코드, 시험 종류가 필요합니다.');
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      if (result && result.success === false) {
+        alert(result.message || '테스트 푸시 전송에 실패했습니다.');
+        return;
+      }
+      alert('테스트 푸시를 보냈습니다. 알림센터를 확인하세요.');
+    })
+    .withFailureHandler(function(error) {
+      alert('테스트 푸시 오류: ' + error.message);
+    })
+    .sendParentPushTest(studentName, password, dbType);
+}
+</script>
+</body>
+</html>
