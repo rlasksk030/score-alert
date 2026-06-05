@@ -25,7 +25,7 @@ self.addEventListener('push', function(event) {
     tag: data.tag || 'okgu-score-alert',
     renotify: true,
     data: {
-      url: data.url || './'
+      url: self.registration.scope || './'
     }
   };
 
@@ -35,12 +35,12 @@ self.addEventListener('push', function(event) {
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
-  var targetUrl = (event.notification.data && event.notification.data.url) || './';
+  var targetUrl = self.registration.scope || './';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       for (var i = 0; i < clientList.length; i += 1) {
         var client = clientList[i];
-        if ('focus' in client) {
+        if (client.url && client.url.indexOf(targetUrl) === 0 && 'focus' in client) {
           client.focus();
           if ('navigate' in client) return client.navigate(targetUrl);
           return;

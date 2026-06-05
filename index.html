@@ -543,12 +543,16 @@ function paintResult(info, tab){
       h+='<div class="note">상세 결과가 없습니다.</div>';
     }
     if(info.redoLog && info.redoLog.length){
-      var doneN=info.redoLog.filter(function(r){return r.done;}).length;
-      h+='<div class="redolog"><div class="redolog-h"><span>오답 다시쓰기 기록</span><span class="sum">'+doneN+'/'+info.redoLog.length+' 완료</span></div>';
+      var requiredLogs=info.redoLog.filter(function(r){return !r.notRequired;});
+      var doneN=requiredLogs.filter(function(r){return r.done;}).length;
+      h+='<div class="redolog"><div class="redolog-h"><span>오답 다시쓰기 기록</span><span class="sum">'+doneN+'/'+requiredLogs.length+' 완료</span></div>';
       info.redoLog.forEach(function(r){
-        h+='<div class="redorow"><span class="redodate">'+escapeHtml(r.date)+(r.label?' <small>'+escapeHtml(r.label)+'</small>':'')+'</span>'+(r.done
-          ? '<span class="redochip done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>다시 썼어요</span>'
-          : '<span class="redochip todo">아직이에요</span>')+'</div>';
+        var chip = r.notRequired
+          ? (r.absent ? '<span class="redochip todo">시험안봄</span>' : '<span class="redochip done">확인 필요 없음</span>')
+          : (r.done
+            ? '<span class="redochip done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>다시 썼어요</span>'
+            : '<span class="redochip todo">아직이에요</span>');
+        h+='<div class="redorow"><span class="redodate">'+escapeHtml(r.date)+(r.label?' <small>'+escapeHtml(r.label)+'</small>':'')+'</span>'+chip+'</div>';
       });
       h+='</div>';
     }
@@ -571,10 +575,19 @@ function paintSession(s, tab){
   var scoreText=formatScore(s.score);
   var pairs=(s.wrong && s.wrong.length && typeof s.wrong[0]==='object') ? s.wrong : null;
   var wrongCount = Number(s.wrongCount != null ? s.wrongCount : (pairs ? pairs.length : 0));
+  var statusText = String(s.statusValue || '').replace(/\s/g, '');
+  var absent = !!s.absent || statusText === '시험안봄';
   var perfect=wrongCount===0 && (!pairs || pairs.length===0);
   var wrongLabel = wrongCount > 0 ? wrongCount : (pairs ? pairs.length : 0);
   var h='';
   h+='<div class="res-kicker">'+meta.kind+'</div>';
+  if(absent){
+    h+='<div class="scorewrap"><span class="score" style="font-size:48px;line-height:1.12;">시험 안봄</span></div>';
+    h+='<span class="scoretag" style="background:#F2F4F2;color:#79827C;">결과 없음</span>';
+    h+='<div class="cheer"><div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg></div><div class="t"><b>시험을 보지 않았어요</b><span>이 날짜에는 성적과 오답 다시쓰기 확인이 없어요.</span></div></div>';
+    $('sessionBody').innerHTML=h;
+    return;
+  }
   h+='<div class="scorewrap"><span class="score">'+escapeHtml(scoreText.num)+'<span class="u">'+escapeHtml(scoreText.unit)+'</span></span></div>';
   h+=perfect
     ? '<span class="scoretag" style="background:#EAF2EC;color:#1C5C3C;">만점 · 참 잘했어요</span>'
