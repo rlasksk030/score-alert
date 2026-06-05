@@ -5,7 +5,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#1C5C3C">
 <title>옥구초 성적 조회</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
   :root{
@@ -448,7 +451,7 @@ function login(){
       if(res.isFirst){ newCode=''; renderDots($('newCodeDots'), ''); $('setupBtn').disabled=true; show('setupView'); }
       else { cacheResult={}; cacheResult[currentTab]=res.studentInfo; openResult(currentTab); }
     } else {
-      toast('정보가 올바르지 않습니다.');
+      toast((res && res.message) || '정보가 올바르지 않습니다.');
     }
   }).catch(function(err){
     btn.disabled=false; btn.textContent='성적 확인하기';
@@ -567,13 +570,15 @@ function paintSession(s, tab){
   var meta=examMeta[tab];
   var scoreText=formatScore(s.score);
   var pairs=(s.wrong && s.wrong.length && typeof s.wrong[0]==='object') ? s.wrong : null;
-  var perfect=!pairs || pairs.length===0;
+  var wrongCount = Number(s.wrongCount != null ? s.wrongCount : (pairs ? pairs.length : 0));
+  var perfect=wrongCount===0 && (!pairs || pairs.length===0);
+  var wrongLabel = wrongCount > 0 ? wrongCount : (pairs ? pairs.length : 0);
   var h='';
   h+='<div class="res-kicker">'+meta.kind+'</div>';
   h+='<div class="scorewrap"><span class="score">'+escapeHtml(scoreText.num)+'<span class="u">'+escapeHtml(scoreText.unit)+'</span></span></div>';
   h+=perfect
     ? '<span class="scoretag" style="background:#EAF2EC;color:#1C5C3C;">만점 · 참 잘했어요</span>'
-    : '<span class="scoretag" style="background:#F2F4F2;color:#79827C;">'+pairs.length+'문장 틀림</span>';
+    : '<span class="scoretag" style="background:#F2F4F2;color:#79827C;">'+wrongLabel+'문장 틀림</span>';
   if(!perfect){
     h+='<div class="redo-status"><span class="redolabel">오답 다시쓰기</span>'+(s.redone
       ? '<span class="redochip done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1C5C3C" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>다시 썼어요</span>'
@@ -585,6 +590,7 @@ function paintSession(s, tab){
     h+='<div class="rule"></div>';
     h+='<div class="meta"><span class="k">시험 종류</span><span class="v">'+escapeHtml(meta.label)+'</span></div>';
     h+='<div class="meta"><span class="k">점수</span><span class="v">'+escapeHtml(scoreText.num+scoreText.unit)+'</span></div>';
+    pairs = pairs || [];
     h+='<div class="wrong-h"><span class="dot"></span>틀린 문장 · 정답 비교 '+pairs.length+'개</div><div>';
     pairs.forEach(function(w,i){
       var dh=diffHtml(String(w.mine!=null?w.mine:''), String(w.correct!=null?w.correct:''));
@@ -679,6 +685,10 @@ function markPushOn(){
 
 async function enableParentScorePush(studentName, password, dbType){
   if(!studentName || !password || !dbType){ toast('학생 이름, 확인코드, 시험 종류가 필요합니다.'); return; }
+  if(HAS_GS){
+    alert('푸시 알림 켜기는 GitHub 알림 주소에서 해주세요.\n이 기존 성적조회 주소에서는 성적과 틀린 답 비교를 확인할 수 있습니다.');
+    return;
+  }
   if(!scorePushSupported()){
     alert('이 기기에서는 푸시 알림을 지원하지 않습니다.\n아이폰은 iOS 16.4 이상에서 홈화면에 추가한 뒤 실행해야 합니다.'); return;
   }
@@ -697,6 +707,10 @@ async function enableParentScorePush(studentName, password, dbType){
 }
 function testParentScorePush(studentName, password, dbType){
   if(!studentName || !password || !dbType){ toast('학생 이름, 확인코드, 시험 종류가 필요합니다.'); return; }
+  if(HAS_GS){
+    alert('테스트 알림은 GitHub 알림 주소에서 알림을 켠 뒤 보내주세요.');
+    return;
+  }
   gs('sendParentPushTest', studentName, password, dbType)
     .then(function(result){
       if(result && result.success===false){ toast(result.message || '테스트 푸시 전송에 실패했습니다.'); return; }

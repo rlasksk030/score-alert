@@ -1,72 +1,52 @@
-// OKGU Score Web Push service worker
-const SCORE_URL = 'https://script.google.com/macros/s/AKfycbxlX0fc3nSvZE2JmWNNyaG7zQ-BKvUfMGmRdO3qhSmm_mv7lxLJhE_fKMvbeLLF5-Jd/exec';
-
-self.addEventListener('install', (event) => {
+self.addEventListener('install', function(event) {
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', function(event) {
   event.waitUntil(self.clients.claim());
 });
 
-self.addEventListener('push', (event) => {
-  let data = {
-    title: '옥구초 6학년 성적 알림',
-    body: '새 성적 결과가 있습니다.',
-    url: SCORE_URL,
-    tag: 'okgu-score',
-    icon: 'okgu_icon.png',
-    badgeCount: 1
+self.addEventListener('push', function(event) {
+  var data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (error) {
+    data = {
+      title: '옥구초 성적 알림',
+      body: event.data ? event.data.text() : '성적 정보가 변경되었습니다.'
+    };
+  }
+
+  var title = data.title || '옥구초 성적 알림';
+  var options = {
+    body: data.body || '성적 정보가 변경되었습니다.',
+    icon: data.icon || 'icon-192.png',
+    badge: data.badge || 'icon-192.png',
+    tag: data.tag || 'okgu-score-alert',
+    renotify: true,
+    data: {
+      url: data.url || './'
+    }
   };
 
-  try {
-    if (event.data) data = Object.assign(data, event.data.json());
-  } catch (err) {
-    try {
-      data.body = event.data ? event.data.text() : data.body;
-    } catch (_) {}
-  }
-
-  const badgeCount = Math.max(1, Number(data.badgeCount || data.unreadCount || 1) || 1);
-  const tasks = [
-    self.registration.showNotification(data.title || '옥구초 6학년 성적 알림', {
-      body: data.body || '새 성적 결과가 있습니다.',
-      icon: data.icon || 'okgu_icon.png',
-      badge: data.icon || 'okgu_icon.png',
-      tag: data.tag || 'okgu-score',
-      renotify: true,
-      data: { url: data.url || SCORE_URL }
-    })
-  ];
-
-  if (self.registration.setAppBadge) {
-    tasks.push(self.registration.setAppBadge(badgeCount).catch(() => {}));
-  }
-
-  event.waitUntil(Promise.all(tasks));
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || SCORE_URL;
 
-  const clearBadge = self.registration.clearAppBadge
-    ? self.registration.clearAppBadge().catch(() => {})
-    : Promise.resolve();
-
+  var targetUrl = (event.notification.data && event.notification.data.url) || './';
   event.waitUntil(
-    clearBadge
-      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
-      .then((clients) => {
-        for (const client of clients) {
-          if ('focus' in client) {
-            client.focus();
-            if ('navigate' in client) return client.navigate(url);
-            return client;
-          }
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      for (var i = 0; i < clientList.length; i += 1) {
+        var client = clientList[i];
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) return client.navigate(targetUrl);
+          return;
         }
-        if (self.clients.openWindow) return self.clients.openWindow(url);
-        return undefined;
-      })
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    })
   );
 });
