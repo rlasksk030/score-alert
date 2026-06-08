@@ -18,6 +18,7 @@ self.addEventListener('push', function(event) {
   }
 
   var title = data.title || '옥구초 성적 알림';
+  var targetUrl = data.url || self.registration.scope || './';
   var options = {
     body: data.body || '성적 정보가 변경되었습니다.',
     icon: data.icon || 'icon-192.png',
@@ -25,7 +26,7 @@ self.addEventListener('push', function(event) {
     tag: data.tag || 'okgu-score-alert',
     renotify: true,
     data: {
-      url: self.registration.scope || './'
+      url: targetUrl
     }
   };
 
@@ -35,7 +36,10 @@ self.addEventListener('push', function(event) {
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
 
-  var targetUrl = self.registration.scope || './';
+  var targetUrl = (event.notification.data && event.notification.data.url) ||
+    self.registration.scope ||
+    './';
+
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
       for (var i = 0; i < clientList.length; i += 1) {

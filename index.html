@@ -316,6 +316,8 @@ function callScoreApi_(fn, args){
     params = { name: args[0], oldPassword: args[1], newPassword: args[2] };
   } else if (fn === 'saveParentPushSubscription') {
     params = { name: args[0], password: args[1], dbType: args[2], subscriptionJson: args[3] };
+  } else if (fn === 'getParentPushStatus') {
+    params = { name: args[0], password: args[1], dbType: args[2], subscriptionJson: args[3] };
   } else if (fn === 'sendParentPushTest') {
     params = { name: args[0], password: args[1], dbType: args[2] };
   } else {
@@ -414,6 +416,7 @@ var MOCK = (function(){
       });
     },
     saveParentPushSubscription: function(res){ delay(function(){ res({success:true}); }); },
+    getParentPushStatus: function(res){ delay(function(){ res({success:true, enabled:true}); }); },
     sendParentPushTest: function(res){ delay(function(){ res({success:true}); }); }
   };
 })();
@@ -865,7 +868,7 @@ function scoreUrlBase64ToUint8Array(base64String){
 function scorePushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
 function getScorePushRegistration(){
   if(!scorePushSupported()) throw new Error('이 기기는 Web Push를 지원하지 않습니다.');
-  return navigator.serviceWorker.register('sw.js?v=score-push-20260605');
+  return navigator.serviceWorker.register('sw.js?v=score-push-20260608-v2');
 }
 function markPushOn(){
   try{ localStorage.setItem(scorePushLocalKey(), '1'); }catch(err){}
@@ -902,9 +905,17 @@ function refreshScorePushUi(){
     if(!subscription) {
       try{ localStorage.removeItem(scorePushLocalKey()); }catch(err){}
       markPushOff();
-    } else if(remembered) {
-      markPushOn();
+      return null;
     }
+    return gs('getParentPushStatus', session.name, session.code || code, resultTab, JSON.stringify(subscription));
+  }).then(function(result){
+    if(!result) return;
+    if(result.success === false || !result.enabled){
+      try{ localStorage.removeItem(scorePushLocalKey()); }catch(err){}
+      markPushOff();
+      return;
+    }
+    markPushOn();
   }).catch(function(){});
 }
 
