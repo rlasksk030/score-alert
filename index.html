@@ -327,7 +327,8 @@ function callScoreApi_(fn, args){
     var script = document.createElement('script');
     var query = new URLSearchParams(Object.assign({}, params, {
       api: fn,
-      callback: callbackName
+      callback: callbackName,
+      cacheBust: Date.now() + '_' + Math.floor(Math.random() * 1000000)
     }));
     var timer = setTimeout(function(){
       cleanup();
