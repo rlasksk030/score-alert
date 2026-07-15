@@ -776,7 +776,7 @@ function renderResultBody(){
   if(!lookupCode){ renderTabCodePrompt(tab); return; }
   if(cached){ renderSessions(cached, tab); }
   // 다른 시험 탭 — 같은 코드로 재조회
-  else { body.innerHTML='<div class="scorewrap"><span class="score" style="color:#D6DDD8;">··<span class="u">점</span></span></div><div class="note">불러오는 중…</div>'; }
+  else { body.innerHTML='<div class="scorewrap"><span class="score" style="color:#D6DDD8;">··<span class="u"></span></span></div><div class="note">불러오는 중…</div>'; }
   gs('getStudentData', session.name, lookupCode, tab).then(function(res){
     if(requestId!==latestResultRequestId || tab!==resultTab) return;
     if(res && res.success && res.studentInfo){
@@ -871,7 +871,7 @@ function paintResult(info, tab){
     h+='<span class="scoretag" style="background:#F2F4F2;color:#79827C;">'+escapeHtml(meta.label)+' 결과</span>';
     h+='<div class="rule"></div>';
     h+='<div class="meta"><span class="k">시험 종류</span><span class="v">'+escapeHtml(meta.label)+'</span></div>';
-    h+='<div class="meta"><span class="k">점수</span><span class="v">'+escapeHtml(scoreText.num+scoreText.unit)+'</span></div>';
+    h+='<div class="meta"><span class="k">정답 수</span><span class="v">'+escapeHtml(scoreText.num+scoreText.unit)+'</span></div>';
     var pairs = (info.wrong && info.wrong.length && typeof info.wrong[0]==='object') ? info.wrong : null;
     if(pairs){
       h+='<div class="wrong-h"><span class="dot"></span>틀린 문장 · 정답 비교 '+pairs.length+'개</div><div>';
@@ -954,7 +954,7 @@ function paintSession(s, tab){
   } else {
     h+='<div class="rule"></div>';
     h+='<div class="meta"><span class="k">시험 종류</span><span class="v">'+escapeHtml(meta.label)+'</span></div>';
-    h+='<div class="meta"><span class="k">점수</span><span class="v">'+escapeHtml(scoreText.num+scoreText.unit)+'</span></div>';
+    h+='<div class="meta"><span class="k">정답 수</span><span class="v">'+escapeHtml(scoreText.num+scoreText.unit)+'</span></div>';
     pairs = pairs || [];
     h+='<div class="wrong-h"><span class="dot"></span>틀린 문장 · 정답 비교 '+pairs.length+'개</div><div>';
     pairs.forEach(function(w,i){
@@ -968,7 +968,7 @@ function paintSession(s, tab){
 function formatScore(score){
   if(score===null||score===undefined||score===''){ return {num:'결과', unit:' 없음'}; }
   var text=String(score);
-  if(/^\d+(\.\d+)?$/.test(text)) return {num:text, unit:'점'};
+  if(/^\d+(\.\d+)?$/.test(text)) return {num:text, unit:''};
   return {num:text, unit:''};
 }
 
