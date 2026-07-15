@@ -162,6 +162,11 @@
   .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;
         border-radius:50%;animation:sp .7s linear infinite;}
   @keyframes sp{to{transform:rotate(360deg);}}
+  body.gs-hosted .wrap{min-height:auto;min-height:0;}
+  body.gs-hosted .scroll{overflow:visible;}
+  body.gs-hosted .centerpad{min-height:auto;}
+  body.gs-hosted .centermain{justify-content:flex-start;padding-top:28px;}
+  body.gs-hosted .footer{background:var(--bg);}
 </style>
 </head>
 <body>
@@ -275,9 +280,10 @@ var resultTab  = 'exam1';      // 결과 화면의 시험 탭
 var sessionIdx = 0;            // 선택한 시험(날짜) 인덱스
 var code = '';                 // 로그인 확인코드
 var newCode = '';              // 신규 코드
+var tabCodeDraft = '';         // 다른 시험 탭 확인코드 임시 입력
 var setupMode = 'initial';     // initial | change
 var setupTargetTab = 'exam1';
-var session = { name:'', code:'', pageId:'', pageIds:{} };   // 로그인 후 보관 (영어/받아쓰기 모두 조회용)
+var session = { name:'', code:'', codes:{}, pageId:'', pageIds:{} };   // 로그인 후 보관 (영어/받아쓰기 모두 조회용)
 var examMeta = { exam1:{label:'영어 시험', kind:'영어 시험 결과'}, exam2:{label:'받아쓰기', kind:'받아쓰기 결과'} };
 var cacheResult = {};          // tab -> studentInfo (재조회 캐시)
 var latestResultRequestId = 0;  // 탭 전환 중 늦게 도착한 이전 응답 무시
@@ -291,6 +297,7 @@ var REMEMBER_LOGIN_DAYS = 30;
 ========================================================= */
 var SCORE_API_URL = 'https://script.google.com/macros/s/AKfycbxlX0fc3nSvZE2JmWNNyaG7zQ-BKvUfMGmRdO3qhSmm_mv7lxLJhE_fKMvbeLLF5-Jd/exec';
 var HAS_GS = (typeof google !== 'undefined' && google.script && google.script.run);
+if(HAS_GS){ document.body.classList.add('gs-hosted'); }
 
 function gs(fn){
   var args = Array.prototype.slice.call(arguments, 1);
@@ -473,6 +480,16 @@ function loadList(){
 }
 function refreshLoginBtn(){ $('loginBtn').disabled = !($('studentName').value && code.length>0); }
 
+function getSessionCode(tab){
+  return (session.codes && session.codes[tab]) || session.code || code;
+}
+
+function setSessionCode(tab, pin){
+  if(!session.codes) session.codes={};
+  session.codes[tab]=pin;
+  if(!session.code) session.code=pin;
+}
+
 function login(){
   var name=$('studentName').value;
   if(!name || !code){ toast('이름과 확인코드를 입력해 주세요.'); return; }
@@ -480,7 +497,8 @@ function login(){
   gs('getStudentData', name, code, currentTab).then(function(res){
     btn.disabled=false; btn.textContent='성적 확인하기';
     if(res && res.success){
-      session={ name:name, code:code, pageId:res.pageId, pageIds:{} };
+      session={ name:name, code:code, codes:{}, pageId:res.pageId, pageIds:{} };
+      setSessionCode(currentTab, code);
       session.pageIds[currentTab]=res.pageId;
       if(res.isFirst){ prepareCodeSetup('initial', currentTab); show('setupView'); }
       else { cacheResult={}; cacheResult[currentTab]=normalizeStudentInfo(res.studentInfo); rememberLogin(name, code, currentTab); openResult(currentTab); }
@@ -608,7 +626,8 @@ function tryAutoLogin(){
   currentTab=saved.tab || 'exam1';
   resultTab=currentTab;
   code=String(saved.code || '');
-  session={ name:saved.name, code:code, pageId:'', pageIds:{} };
+  session={ name:saved.name, code:code, codes:{}, pageId:'', pageIds:{} };
+  setSessionCode(currentTab, code);
   show('loginView');
   var sel=$('studentName');
   sel.innerHTML='<option value="'+escapeHtml(saved.name)+'">'+escapeHtml(saved.name)+'</option>';
@@ -624,6 +643,7 @@ function tryAutoLogin(){
     $('loginBtn').textContent='성적 확인하기';
     if(res && res.success && !res.isFirst){
       session.pageId=res.pageId;
+      setSessionCode(currentTab, code);
       session.pageIds[currentTab]=res.pageId;
       cacheResult={};
       cacheResult[currentTab]=normalizeStudentInfo(res.studentInfo);
@@ -686,7 +706,11 @@ function changePassword(){
   var targetTab=setupTargetTab || currentTab;
   var savePromise;
   if(setupMode==='change'){
-    savePromise=gs('updateLoggedInPasswordAll', session.name, session.code, newCode);
+    if(session.pageIds[targetTab]){
+      savePromise=gs('updatePassword', session.pageIds[targetTab], newCode, targetTab);
+    } else {
+      savePromise=gs('updateLoggedInPasswordAll', session.name, getSessionCode(targetTab), newCode);
+    }
   } else {
     savePromise=gs('updatePassword', session.pageIds[targetTab] || session.pageId, newCode, targetTab);
   }
@@ -695,6 +719,7 @@ function changePassword(){
     toast(setupMode==='change' ? '확인코드가 변경됐어요.' : '설정 완료! 새 코드로 결과를 확인할게요.');
     session.code=newCode;
     code=newCode;
+    setSessionCode(targetTab, newCode);
     rememberLogin(session.name, newCode, targetTab);
     // 새 코드로 즉시 재조회
     return gs('getStudentData', session.name, newCode, targetTab);
@@ -702,6 +727,7 @@ function changePassword(){
     btn.disabled=false; btn.textContent=(setupMode==='change' ? '확인코드 변경 완료' : '설정 완료 · 결과 보기');
     if(res && res.success && !res.isFirst){
       session.pageId=res.pageId;
+      setSessionCode(targetTab, newCode);
       session.pageIds[targetTab]=res.pageId;
       cacheResult={};
       cacheResult[targetTab]=normalizeStudentInfo(res.studentInfo);
@@ -746,31 +772,94 @@ function renderResultBody(){
   body.style.animation='none'; void body.offsetWidth; body.style.animation='';
   var cached=cacheResult[tab];
   var requestId=++latestResultRequestId;
+  var lookupCode=getSessionCode(tab);
+  if(!lookupCode){ renderTabCodePrompt(tab); return; }
   if(cached){ renderSessions(cached, tab); }
   // 다른 시험 탭 — 같은 코드로 재조회
   else { body.innerHTML='<div class="scorewrap"><span class="score" style="color:#D6DDD8;">··<span class="u">점</span></span></div><div class="note">불러오는 중…</div>'; }
-  gs('getStudentData', session.name, session.code, tab).then(function(res){
+  gs('getStudentData', session.name, lookupCode, tab).then(function(res){
     if(requestId!==latestResultRequestId || tab!==resultTab) return;
     if(res && res.success && res.studentInfo){
       var normalized=normalizeStudentInfo(res.studentInfo);
+      setSessionCode(tab, lookupCode);
       session.pageIds[tab]=res.pageId;
       cacheResult[tab]=normalized;
       updateLastChecked();
       renderSessions(normalized, tab);
     }
     else if(res && res.isFirst){ body.innerHTML='<div class="note"><b style="color:var(--ink);">'+examMeta[tab].label+' 코드가 아직 없어요.</b><br>홈에서 '+examMeta[tab].label+'을(를) 선택해 코드를 먼저 만들어 주세요.</div>'; }
-    else { body.innerHTML='<div class="note"><b style="color:var(--ink);">이 시험은 확인코드가 달라요.</b><br>'+examMeta[tab].label+' 결과는 홈에서 다시 로그인해 확인해 주세요.</div>'; }
+    else { renderTabCodePrompt(tab, (res && res.message) || '이 시험은 확인코드가 달라요.'); }
   }).catch(function(err){
     if(requestId!==latestResultRequestId || tab!==resultTab) return;
     if(cached){ toast('최신 '+examMeta[tab].label+' 기록을 새로 불러오지 못했어요.'); return; }
     body.innerHTML='<div class="note">조회 오류: '+escapeHtml(err && err.message ? err.message : ''+err)+'</div>';
   });
 }
+
+function renderTabCodePrompt(tab, message){
+  tabCodeDraft='';
+  var meta=examMeta[tab];
+  var body=$('resultBody');
+  body.innerHTML=
+    '<div class="note"><b style="color:var(--ink);">'+escapeHtml(meta.label)+' 확인코드를 입력해 주세요.</b><br>'+
+    escapeHtml(message || '영어 시험과 '+meta.label+' 확인코드가 다를 수 있어요.')+'</div>'+
+    '<div class="field" style="margin-top:28px;margin-bottom:0;">'+
+    '<div class="flabel">'+escapeHtml(meta.label)+' 확인코드</div>'+
+    '<div class="code" id="tabCodeDots"></div>'+
+    '<div class="keypad" id="tabCodeKeypad"></div>'+
+    '</div>'+
+    '<button id="tabCodeSubmit" class="btn btn-pri" style="margin-top:22px;" type="button" disabled>이 코드로 조회하기</button>';
+  renderDots($('tabCodeDots'), tabCodeDraft);
+  buildKeypad($('tabCodeKeypad'),
+    function(d){
+      if(tabCodeDraft.length<4){
+        tabCodeDraft+=d;
+        renderDots($('tabCodeDots'), tabCodeDraft);
+        $('tabCodeSubmit').disabled=tabCodeDraft.length!==4;
+      }
+    },
+    function(){
+      tabCodeDraft=tabCodeDraft.slice(0,-1);
+      renderDots($('tabCodeDots'), tabCodeDraft);
+      $('tabCodeSubmit').disabled=tabCodeDraft.length!==4;
+    });
+  $('tabCodeSubmit').addEventListener('click', function(){ submitTabCode(tab); });
+}
+
+function submitTabCode(tab){
+  if(tabCodeDraft.length!==4){ toast('확인코드는 숫자 4자리로 입력해 주세요.'); return; }
+  var pin=tabCodeDraft;
+  var btn=$('tabCodeSubmit');
+  btn.disabled=true;
+  btn.innerHTML='<span class="spin"></span> 확인 중...';
+  gs('getStudentData', session.name, pin, tab).then(function(res){
+    if(res && res.success && res.studentInfo){
+      setSessionCode(tab, pin);
+      session.pageIds[tab]=res.pageId;
+      cacheResult[tab]=normalizeStudentInfo(res.studentInfo);
+      rememberLogin(session.name, pin, tab);
+      sessionIdx=0;
+      renderSessions(cacheResult[tab], tab);
+      refreshScorePushUi();
+      updateLastChecked();
+      toast(examMeta[tab].label+' 결과를 불러왔어요.');
+      return;
+    }
+    btn.disabled=false;
+    btn.textContent='이 코드로 조회하기';
+    if(res && res.isFirst){ renderTabCodePrompt(tab, examMeta[tab].label+' 코드가 아직 없어요. 홈에서 먼저 설정해 주세요.'); }
+    else { toast((res && res.message) || '확인코드가 맞지 않아요.'); }
+  }).catch(function(err){
+    btn.disabled=false;
+    btn.textContent='이 코드로 조회하기';
+    toast('조회 오류: '+(err && err.message ? err.message : err));
+  });
+}
 function paintResult(info, tab){
   var meta=examMeta[tab];
   var scoreText=formatScore(info.score);
   var extra=(info.extra||'').trim();
-  var perfect=/틀린 문장이 없|참 잘했어요|💯/.test(extra) || /^100/.test(String(info.score));
+  var perfect=/틀린 문장이 없|참 잘했어요|💯/.test(extra) || isPerfectScore(info.score);
   var h='';
   h+='<div class="res-kicker">'+meta.kind+'</div>';
   h+='<div class="scorewrap"><span class="score">'+escapeHtml(scoreText.num)+'<span class="u">'+escapeHtml(scoreText.unit)+'</span></span></div>';
@@ -840,7 +929,7 @@ function paintSession(s, tab){
   var wrongCount = Number(s.wrongCount != null ? s.wrongCount : (pairs ? pairs.length : 0));
   var statusText = String(s.statusValue || '').replace(/\s/g, '');
   var absent = !!s.absent || statusText === '시험안봄';
-  var perfect=wrongCount===0 && (!pairs || pairs.length===0);
+  var perfect=isPerfectScore(s.score) || (wrongCount===0 && (!pairs || pairs.length===0));
   var wrongLabel = wrongCount > 0 ? wrongCount : (pairs ? pairs.length : 0);
   var h='';
   h+='<div class="res-kicker">'+meta.kind+'</div>';
@@ -883,6 +972,13 @@ function formatScore(score){
   return {num:text, unit:''};
 }
 
+function isPerfectScore(score){
+  if(score===null || score===undefined) return false;
+  var text=String(score).replace(/\s/g,'');
+  var match=text.match(/^100(?:\.0+)?(?:점|\/100)?$/);
+  return !!match;
+}
+
 /* 문자 단위 비교: 공통 앞/뒤를 제외한 다른 부분만 반환 */
 function diffParts(a,b){
   var min=Math.min(a.length,b.length);
@@ -902,7 +998,7 @@ function diffHtml(mine, correct){
 
 function goHome(){
   clearRememberedLogin();
-  code=''; newCode=''; cacheResult={};
+  code=''; newCode=''; tabCodeDraft=''; cacheResult={};
   setupMode='initial'; setupTargetTab='exam1';
   renderDots($('codeDots'), '');
   $('studentName').selectedIndex=0; $('nameField').classList.add('ph');
@@ -990,7 +1086,7 @@ function refreshScorePushUi(){
       markPushOff();
       return null;
     }
-    return gs('getParentPushStatus', session.name, session.code || code, resultTab, JSON.stringify(subscription));
+    return gs('getParentPushStatus', session.name, getSessionCode(resultTab), resultTab, JSON.stringify(subscription));
   }).then(function(result){
     if(!result) return;
     if(result.success === false || !result.enabled){
@@ -1037,8 +1133,8 @@ function testParentScorePush(studentName, password, dbType){
     })
     .catch(function(error){ toast('테스트 푸시 오류: '+error.message); });
 }
-function enableLoggedInParentScorePush(){ enableParentScorePush(session.name, session.code || code, resultTab); }
-function testLoggedInParentScorePush(){ testParentScorePush(session.name, session.code || code, resultTab); }
+function enableLoggedInParentScorePush(){ enableParentScorePush(session.name, getSessionCode(resultTab), resultTab); }
+function testLoggedInParentScorePush(){ testParentScorePush(session.name, getSessionCode(resultTab), resultTab); }
 </script>
 </body>
 </html>
