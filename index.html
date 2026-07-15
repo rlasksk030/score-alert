@@ -8,6 +8,7 @@
 <meta name="theme-color" content="#1C5C3C">
 <title>옥구초 성적 조회</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
@@ -279,6 +280,7 @@ var setupTargetTab = 'exam1';
 var session = { name:'', code:'', pageId:'', pageIds:{} };   // 로그인 후 보관 (영어/받아쓰기 모두 조회용)
 var examMeta = { exam1:{label:'영어 시험', kind:'영어 시험 결과'}, exam2:{label:'받아쓰기', kind:'받아쓰기 결과'} };
 var cacheResult = {};          // tab -> studentInfo (재조회 캐시)
+var latestResultRequestId = 0;  // 탭 전환 중 늦게 도착한 이전 응답 무시
 var REMEMBER_LOGIN_KEY = 'okguScoreRememberedLogin:v1';
 var REMEMBER_LOGIN_DAYS = 30;
 
@@ -481,7 +483,7 @@ function login(){
       session={ name:name, code:code, pageId:res.pageId, pageIds:{} };
       session.pageIds[currentTab]=res.pageId;
       if(res.isFirst){ prepareCodeSetup('initial', currentTab); show('setupView'); }
-      else { cacheResult={}; cacheResult[currentTab]=res.studentInfo; rememberLogin(name, code, currentTab); openResult(currentTab); }
+      else { cacheResult={}; cacheResult[currentTab]=normalizeStudentInfo(res.studentInfo); rememberLogin(name, code, currentTab); openResult(currentTab); }
     } else {
       toast((res && res.message) || '정보가 올바르지 않습니다.');
     }
@@ -542,6 +544,63 @@ function updateLastChecked(){
   if(el) el.textContent=formatLastCheckedTime(new Date());
 }
 
+function normalizeStudentInfo(info){
+  if(!info) return info;
+  var normalized={};
+  Object.keys(info).forEach(function(k){ normalized[k]=info[k]; });
+  var sessions = Array.isArray(info.sessions) ? info.sessions :
+                 (Array.isArray(info.records) ? info.records :
+                 (Array.isArray(info.results) ? info.results : null));
+  if(sessions) normalized.sessions=normalizeSessions(sessions);
+  return normalized;
+}
+
+function normalizeSessions(sessions){
+  return sessions.slice().map(function(s,i){
+    var copy={};
+    Object.keys(s || {}).forEach(function(k){ copy[k]=s[k]; });
+    return { item:copy, index:i, sortValue:getSessionSortValue(copy) };
+  }).sort(function(a,b){
+    if(b.sortValue!==a.sortValue) return b.sortValue-a.sortValue;
+    return a.index-b.index;
+  }).map(function(row){ return row.item; });
+}
+
+function getSessionSortValue(sessionItem){
+  if(!sessionItem) return -Infinity;
+  var keys=['timestamp','updatedAt','createdAt','submittedAt','dateValue','isoDate','date','날짜'];
+  for(var i=0;i<keys.length;i++){
+    var parsed=parseSessionDate(sessionItem[keys[i]]);
+    if(isFinite(parsed)) return parsed;
+  }
+  return -Infinity;
+}
+
+function parseSessionDate(value){
+  if(value===null || value===undefined || value==='') return NaN;
+  if(value instanceof Date){
+    var dateTime=value.getTime();
+    return isNaN(dateTime) ? NaN : dateTime;
+  }
+  if(typeof value==='number'){
+    if(value>100000000000) return value;
+    if(value>1000000000) return value*1000;
+    return NaN;
+  }
+  var text=String(value).trim();
+  if(!text) return NaN;
+  var parsedNative=Date.parse(text);
+  if(!isNaN(parsedNative)) return parsedNative;
+  var currentYear=(new Date()).getFullYear();
+  var match=text.match(/(?:(\d{4})\s*년\s*)?(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+  if(match) return new Date(Number(match[1] || currentYear), Number(match[2])-1, Number(match[3])).getTime();
+  match=text.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if(match) return new Date(Number(match[1]), Number(match[2])-1, Number(match[3])).getTime();
+  match=text.match(/(^|[^\d])(\d{1,2})[.\-/](\d{1,2})([^\d]|$)/);
+  if(match) return new Date(currentYear, Number(match[2])-1, Number(match[3])).getTime();
+  return NaN;
+}
+
 function tryAutoLogin(){
   var saved=rememberedLogin();
   if(!saved){ loadList(); return; }
@@ -567,7 +626,7 @@ function tryAutoLogin(){
       session.pageId=res.pageId;
       session.pageIds[currentTab]=res.pageId;
       cacheResult={};
-      cacheResult[currentTab]=res.studentInfo;
+      cacheResult[currentTab]=normalizeStudentInfo(res.studentInfo);
       rememberLogin(saved.name, code, currentTab);
       openResult(currentTab);
     } else {
@@ -645,7 +704,7 @@ function changePassword(){
       session.pageId=res.pageId;
       session.pageIds[targetTab]=res.pageId;
       cacheResult={};
-      cacheResult[targetTab]=res.studentInfo;
+      cacheResult[targetTab]=normalizeStudentInfo(res.studentInfo);
       openResult(targetTab);
     }
     else { goHome(); }
@@ -669,8 +728,14 @@ function openResult(tab){
   refreshScorePushUi();
 }
 function setResultTab(tab){
-  if(tab===resultTab) return;
+  if(tab===resultTab){
+    sessionIdx=0;
+    renderResultBody();
+    refreshScorePushUi();
+    return;
+  }
   resultTab=tab; sessionIdx=0;
+  if(session.name && session.code) rememberLogin(session.name, session.code, tab);
   updateLastChecked();
   [].forEach.call($('resultTabs').children, function(b){ b.classList.toggle('on', b.dataset.tab===tab); });
   renderResultBody();
@@ -679,14 +744,27 @@ function setResultTab(tab){
 function renderResultBody(){
   var body=$('resultBody'); var tab=resultTab;
   body.style.animation='none'; void body.offsetWidth; body.style.animation='';
-  if(cacheResult[tab]){ renderSessions(cacheResult[tab], tab); return; }
+  var cached=cacheResult[tab];
+  var requestId=++latestResultRequestId;
+  if(cached){ renderSessions(cached, tab); }
   // 다른 시험 탭 — 같은 코드로 재조회
-  body.innerHTML='<div class="scorewrap"><span class="score" style="color:#D6DDD8;">··<span class="u">점</span></span></div><div class="note">불러오는 중…</div>';
+  else { body.innerHTML='<div class="scorewrap"><span class="score" style="color:#D6DDD8;">··<span class="u">점</span></span></div><div class="note">불러오는 중…</div>'; }
   gs('getStudentData', session.name, session.code, tab).then(function(res){
-    if(res && res.success && res.studentInfo){ session.pageIds[tab]=res.pageId; cacheResult[tab]=res.studentInfo; renderSessions(res.studentInfo, tab); }
+    if(requestId!==latestResultRequestId || tab!==resultTab) return;
+    if(res && res.success && res.studentInfo){
+      var normalized=normalizeStudentInfo(res.studentInfo);
+      session.pageIds[tab]=res.pageId;
+      cacheResult[tab]=normalized;
+      updateLastChecked();
+      renderSessions(normalized, tab);
+    }
     else if(res && res.isFirst){ body.innerHTML='<div class="note"><b style="color:var(--ink);">'+examMeta[tab].label+' 코드가 아직 없어요.</b><br>홈에서 '+examMeta[tab].label+'을(를) 선택해 코드를 먼저 만들어 주세요.</div>'; }
     else { body.innerHTML='<div class="note"><b style="color:var(--ink);">이 시험은 확인코드가 달라요.</b><br>'+examMeta[tab].label+' 결과는 홈에서 다시 로그인해 확인해 주세요.</div>'; }
-  }).catch(function(err){ body.innerHTML='<div class="note">조회 오류: '+escapeHtml(err && err.message ? err.message : ''+err)+'</div>'; });
+  }).catch(function(err){
+    if(requestId!==latestResultRequestId || tab!==resultTab) return;
+    if(cached){ toast('최신 '+examMeta[tab].label+' 기록을 새로 불러오지 못했어요.'); return; }
+    body.innerHTML='<div class="note">조회 오류: '+escapeHtml(err && err.message ? err.message : ''+err)+'</div>';
+  });
 }
 function paintResult(info, tab){
   var meta=examMeta[tab];
@@ -740,9 +818,14 @@ function paintResult(info, tab){
   $('resultBody').innerHTML=h;
 }
 function renderSessions(info, tab){
-  var sessions=(info && info.sessions && info.sessions.length) ? info.sessions : null;
-  if(!sessions){ paintResult(info, tab); return; }
+  var sessions=(info && Array.isArray(info.sessions)) ? normalizeSessions(info.sessions) : null;
+  if(!sessions || !sessions.length){
+    if(info && (info.score!==undefined || info.extra || info.wrong)) paintResult(info, tab);
+    else $('resultBody').innerHTML='<div class="note"><b style="color:var(--ink);">'+examMeta[tab].label+' 기록이 아직 없어요.</b><br>새 기록이 등록되면 이 화면에 표시됩니다.</div>';
+    return;
+  }
   if(sessionIdx>sessions.length-1) sessionIdx=0;
+  if(sessionIdx<0) sessionIdx=0;
   var opts='';
   sessions.forEach(function(s,i){ opts+='<option value="'+i+'"'+(i===sessionIdx?' selected':'')+'>'+escapeHtml(s.date)+(i===0?' · 최근':'')+'</option>'; });
   var h='<div class="field datefield"><div class="flabel">시험 날짜</div><div class="selectfield"><select id="dateSel">'+opts+'</select><span class="chev"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#BCC3BE" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span></div></div><div id="sessionBody"></div>';
