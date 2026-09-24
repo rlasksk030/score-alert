@@ -866,9 +866,20 @@ function readParentScoreDetail_(dbType, studentName, dateLabel) {
   return [];
 }
 
+// 진단용 함수가 쓸 학생 이름. 코드에 실제 이름을 적지 않는다.
+// Apps Script 편집기 > 프로젝트 설정 > 스크립트 속성 에 DEBUG_STUDENT_NAME 을 넣는다.
+// 진단이 끝나면 속성을 지우는 것을 권한다.
+function debugStudentName_() {
+  var name = (scoreProps_().getProperty('DEBUG_STUDENT_NAME') || '').trim();
+  if (!name) {
+    throw new Error('스크립트 속성 DEBUG_STUDENT_NAME 이 없습니다. 진단할 학생 이름을 속성에 넣어 주세요.');
+  }
+  return name;
+}
+
 function debugParentScoreDetailLookup() {
   var dbType = 'english';
-  var studentName = '이다인';
+  var studentName = debugStudentName_();
   var dateLabel = '6.15(3문제)';
   var details = readParentScoreDetail_(dbType, studentName, dateLabel);
   var result = {
@@ -885,11 +896,11 @@ function debugParentScoreDetailLookup() {
 }
 
 function debugParentDictationDetailLookup() {
-  return debugParentLatestScoreDetailLookup_('dictation', '이다인');
+  return debugParentLatestScoreDetailLookup_('dictation', debugStudentName_());
 }
 
 function debugParentEnglishLatestDetailLookup() {
-  return debugParentLatestScoreDetailLookup_('english', '이다인');
+  return debugParentLatestScoreDetailLookup_('english', debugStudentName_());
 }
 
 function debugParentLatestScoreDetailLookup_(dbType, studentName) {
